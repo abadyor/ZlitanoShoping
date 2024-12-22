@@ -1,0 +1,1063 @@
+﻿@* @page "/CustomerShow"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@using APPL.Services
+
+
+
+<h3>Vendor Data</h3>
+<!-- زر للانتقال إلى صفحة إضافة محل -->
+@if (vendorData == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!vendorData.Any())
+{
+    <p>No data found for this vendor.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var item in vendorData)
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Shop Name: @item.Name</h5>
+                        <p class="card-text"><strong>Address:</strong> @item.Region</p>
+                        <p class="card-text"><strong>Street:</strong> @item.Street</p>
+                        <p class="card-text"><strong>Nearest Point:</strong> @item.NerestPoint</p>
+                        <p class="card-text"><strong>Visitor:</strong> @item.NVistor</p>
+
+                        <!-- زر للانتقال إلى صفحة جديدة -->
+                        <button class="btn btn-primary"
+                                @onclick="() => SaveToSessionAndNavigate(item.Market_Code, item.City, item.Last_VendorCode)">
+                            الدهاب الي المحل
+                        </button>
+
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+
+@code {
+
+    private List<ShopeControllServiceDTO> vendorData;
+
+    private string M_Code;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        // جلب id_vendor من sessionStorage
+        var customeridString = await JS.InvokeAsync<string>("sessionStorage.getItem", "id_customer");
+        M_Code = await JS.InvokeAsync<string>("sessionStorage.getItem", "M_Code");
+
+        if (int.TryParse(customeridString, out var customerid))
+        {
+            await LoadVendorData(customerid);
+
+        }
+        else
+        {
+           // await JS.InvokeVoidAsync("sessionStorage.setItem", "id_customer", 0);
+            await LoadVendorData();
+        }
+
+
+    }
+    private async Task LoadVendorData()
+    {
+        try
+        {
+            vendorData = await Http.GetFromJsonAsync<List<ShopeControllServiceDTO>>($"https://localhost:7173/api/Shops/GetAllShopeWithImage?marketCode={M_Code}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching vendor data: {ex.Message}");
+        }
+    }
+
+    private async Task LoadVendorData(int customerid)
+    {
+        try
+        {
+            vendorData = await Http.GetFromJsonAsync<List<ShopeControllServiceDTO>>($"https://localhost:7173/api/Shops/GetAllShopeWithImage?marketCode={M_Code}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching vendor data: {ex.Message}");
+        }
+    }
+
+    private async Task SaveToSessionAndNavigate(string mCode, string city, string lastStore)
+    {
+        // حفظ القيم في sessionStorage
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "mCode", mCode);
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "city", city);
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "lastStore", lastStore);
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "TableName", "S_" + mCode + city + lastStore);
+
+
+        // إعادة التوجيه إلى صفحة التفاصيل
+        NavigationManager.NavigateTo("/shop-customer");
+
+    }
+    /*
+    private async Task GoToSessionAndNavigate(string mCode, string city, string lastStore)
+        {
+        // حفظ القيم في sessionStorage
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "mCode", mCode);
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "city", city);
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "lastStore", lastStore);
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "TableName", "S_" + mCode + city + lastStore);
+
+        Console.WriteLine("Navigating to /ShowForVendors with TableName: S_" + mCode + city + lastStore);
+
+        // إعادة التوجيه إلى صفحة التفاصيل
+        NavigationManager.NavigateTo("/shop-vendor");
+        // NavigationManager.NavigateTo("/dynamic");
+    }
+    private void NavigateToAddShop()
+        {
+        NavigationManager.NavigateTo("/add-shop-for-vendor");
+        }
+    */
+
+}
+ *@
+
+@* 
+        @page "/CustomerShow"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+<h3>Vendor Data</h3>
+@if (vendorData == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!vendorData.Any())
+{
+    <p>No data found for this vendor.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var shop in vendorData)
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Shop Name: @shop.Name</h5>
+                        <p class="card-text"><strong>Address:</strong> @shop.Region</p>
+                        <p class="card-text"><strong>Street:</strong> @shop.Street</p>
+                        <p class="card-text"><strong>Nearest Point:</strong> @shop.NerestPoint</p>
+                        <p class="card-text"><strong>Visitor:</strong> @shop.NVistor</p>
+
+                        <!-- عرض الصور -->
+                        <div class="product-images">
+                            @if (shop.Images != null && shop.Images.Count > 0)
+                            {
+                                <div class="product-image-container">
+                                    <img src="https://localhost:7173/api/Shops/GetImageForSRC?imagePath=@shop.Path/@shop.Images[currentImageIndexes[shop.Id]]"
+                                         alt="Shop Image"
+                                         class="img-fluid rounded"
+                                         style="height: 200px; object-fit: cover;" />
+                                </div>
+                            }
+                            else
+                            {
+                                <p><em>No images available for this shop.</em></p>
+                            }
+                        </div>
+
+                        <!-- زر للانتقال إلى صفحة جديدة -->
+                        <button class="btn btn-primary"
+                                @onclick="() => SaveToSessionAndNavigate(shop.Market_Code, shop.City, shop.Last_VendorCode)">
+                            Go to Shop
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<ShopeControllServiceDTO> vendorData;
+    private Dictionary<int, int> currentImageIndexes = new(); // تتبع الفهرس الحالي للصورة لكل محل
+    private Dictionary<int, System.Timers.Timer> shopTimers = new(); // تتبع المؤقتات لكل محل
+    private string M_Code;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // جلب بيانات المحلات
+        M_Code = await JS.InvokeAsync<string>("sessionStorage.getItem", "M_Code");
+        if (!string.IsNullOrEmpty(M_Code))
+        {
+            await LoadVendorData();
+        }
+
+        // بدء مؤقت لكل متجر
+        StartTimersForShops();
+    }
+
+    private async Task LoadVendorData()
+    {
+        try
+        {
+            vendorData = await Http.GetFromJsonAsync<List<ShopeControllServiceDTO>>($"https://localhost:7173/api/Shops/GetAllShopeWithImage?marketCode={M_Code}");
+
+            // تهيئة القيم الأولية لفهارس الصور لكل محل
+            foreach (var shop in vendorData)
+            {
+                if (shop.Images != null && shop.Images.Any())
+                {
+                    currentImageIndexes[shop.Id] = 0; // تعيين الصورة الأولى لكل محل
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching vendor data: {ex.Message}");
+        }
+    }
+
+    private void StartTimersForShops()
+    {
+        foreach (var shop in vendorData)
+        {
+            if (shop.Images != null && shop.Images.Any())
+            {
+                var timer = new System.Timers.Timer(3000); // تغيير الصورة كل 3 ثوانٍ
+                timer.Elapsed += (sender, args) =>
+                {
+                    // تبديل فهرس الصورة لهذا المتجر
+                    currentImageIndexes[shop.Id] = (currentImageIndexes[shop.Id] + 1) % shop.Images.Count;
+                    InvokeAsync(StateHasChanged); // تحديث الواجهة
+                };
+                timer.Start();
+                shopTimers[shop.Id] = timer; // تخزين المؤقت
+            }
+        }
+    }
+
+    // إيقاف المؤقتات عند إلغاء الصفحة
+    public void Dispose()
+    {
+        foreach (var timer in shopTimers.Values)
+        {
+            timer.Stop();
+            timer.Dispose();
+        }
+        shopTimers.Clear();
+    }
+
+    private async Task SaveToSessionAndNavigate(string mCode, string city, string lastStore)
+    {
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "TableName", "S_" + mCode + city + lastStore);
+        NavigationManager.NavigateTo("/shop-customer");
+    }
+}
+ *@
+
+
+@*   @page "/CustomerShow"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+<h3>Vendor Data</h3>
+
+
+@if (vendorData == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!vendorData.Any())
+{
+    <p>No data found for this vendor.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var shop in filteredVendorData)  
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Shop Name: @shop.Name</h5>
+                        <p class="card-text"><strong>Address:</strong> @shop.Region</p>
+                        <p class="card-text"><strong>Street:</strong> @shop.Street</p>
+                        <p class="card-text"><strong>Nearest Point:</strong> @shop.NerestPoint</p>
+                        <p class="card-text"><strong>Visitor:</strong> @shop.NVistor</p>
+
+                        <!-- عرض الصور -->
+                        <div class="product-images">
+                            @if (shop.Images != null && shop.Images.Count > 0)
+                            {
+                                <div class="product-image-container">
+                                    <img src="https://localhost:7173/api/Shops/GetImageForSRC?imagePath=@shop.Path/@shop.Images[currentImageIndexes[shop.Id]]"
+                                         alt="Shop Image"
+                                         class="img-fluid rounded"
+                                         style="height: 200px; object-fit: cover;" />
+                                </div>
+                            }
+                            else
+                            {
+                                <p><em>No images available for this shop.</em></p>
+                            }
+                        </div>
+
+                        <!-- زر للانتقال إلى صفحة جديدة -->
+                        <button class="btn btn-primary"
+                                @onclick="() => SaveToSessionAndNavigate(shop.Market_Code, shop.City, shop.Last_VendorCode)">
+                            Go to Shop
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<ShopeControllServiceDTO> vendorData;
+    private List<ShopeControllServiceDTO> filteredVendorData; // لتخزين المحلات المفلترة
+    private Dictionary<int, int> currentImageIndexes = new(); // تتبع الفهرس الحالي للصورة لكل محل
+    private Dictionary<int, System.Timers.Timer> shopTimers = new(); // تتبع المؤقتات لكل محل
+    private string M_Code;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        M_Code = await JS.InvokeAsync<string>("sessionStorage.getItem", "M_Code");
+        if (!string.IsNullOrEmpty(M_Code))
+        {
+            await LoadVendorData();
+        }
+
+        StartTimersForShops();
+    }
+
+    private async Task LoadVendorData()
+    {
+        try
+        {
+            vendorData = await Http.GetFromJsonAsync<List<ShopeControllServiceDTO>>($"https://localhost:7173/api/Shops/GetAllShopeWithImage?marketCode={M_Code}");
+
+            filteredVendorData = vendorData; // بدايةً، نقوم بتعيين البيانات بالكامل للمحلات المفلترة
+
+            foreach (var shop in vendorData)
+            {
+                if (shop.Images != null && shop.Images.Any())
+                {
+                    currentImageIndexes[shop.Id] = 0; // تعيين الصورة الأولى لكل محل
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching vendor data: {ex.Message}");
+        }
+    }
+
+    private void StartTimersForShops()
+    {
+        foreach (var shop in vendorData)
+        {
+            if (shop.Images != null && shop.Images.Any())
+            {
+                var timer = new System.Timers.Timer(3000); // تغيير الصورة كل 3 ثوانٍ
+                timer.Elapsed += (sender, args) =>
+                {
+                    currentImageIndexes[shop.Id] = (currentImageIndexes[shop.Id] + 1) % shop.Images.Count;
+                    InvokeAsync(StateHasChanged); // تحديث الواجهة
+                };
+                timer.Start();
+                shopTimers[shop.Id] = timer;
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        foreach (var timer in shopTimers.Values)
+        {
+            timer.Stop();
+            timer.Dispose();
+        }
+        shopTimers.Clear();
+    }
+
+    private async Task SaveToSessionAndNavigate(string mCode, string city, string lastStore)
+    {
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "TableName", "S_" + mCode + city + lastStore);
+        NavigationManager.NavigateTo("/shop-customer");
+    }
+
+
+
+}
+ *@
+
+@*  @page "/CustomerShow"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+
+<h3>محلات @MarketName</h3>
+
+<!-- حقل البحث -->
+<div class="mb-3">
+    <input @bind="searchTerm" @onkeypress="HandleEnterKeyPress" class="form-control" placeholder="Search for shops..." />
+    <button @onclick="SearchShops" class="btn btn-primary mt-2">بحت</button>
+</div>
+
+@if (vendorData == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!filteredVendorData.Any())
+{
+    <p>No data found for this vendor.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var shop in filteredVendorData)
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Shop Name: @shop.Name</h5>
+                        <p class="card-text"><strong>Address:</strong> @shop.Region</p>
+                        <p class="card-text"><strong>Street:</strong> @shop.Street</p>
+                        <p class="card-text"><strong>Nearest Point:</strong> @shop.NerestPoint</p>
+                        <p class="card-text"><strong>Visitor:</strong> @shop.NVistor</p>
+                        <p class="card-text"><strong>IsLock:</strong> @(shop.IsLock ? "مغلق" : "مفتوح")</p>
+                        <!-- عرض الصور -->
+                        <div class="product-images">
+                            @if (shop.Images != null && shop.Images.Count > 0 && currentImageIndexes.TryGetValue(shop.Id, out var currentIndex))
+                            {
+                                <div class="product-image-container">
+                                    @if (!string.IsNullOrWhiteSpace(shop.Path) && !string.IsNullOrWhiteSpace(shop.Images[currentIndex]))
+                                    {
+                                        <img src="https://localhost:7173/api/Shops/GetImageForSRC?imagePath=@shop.Path/@shop.Images[currentIndex]"
+                                        alt="Shop Image"
+                                        class="img-fluid rounded"
+                                        style="height: 200px; object-fit: cover;" />
+                                    }
+                                    else
+                                    {
+                                        <p><em>No valid image available.</em></p>
+                                    }
+
+                                </div>
+                            }
+                            else
+                            {
+                                <p><em>No images available for this shop.</em></p>
+                            }
+                        </div>
+
+
+                        <!-- زر للانتقال إلى صفحة جديدة -->
+                        <button class="btn btn-primary"
+                        @onclick="() => SaveToSessionAndNavigate(shop.Id, shop.Market_Code, shop.City, shop.Last_VendorCode)"
+                        disabled="@(shop.IsLock)">
+                            الذهاب إلى المحل
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+} *@
+
+@* @code {
+    private List<ShopeControllServiceDTO> vendorData; // قائمة المحلات بالكامل
+    private List<ShopeControllServiceDTO> filteredVendorData; // المحلات المفلترة بناءً على البحث
+    private Dictionary<int, int> currentImageIndexes = new(); // فهارس الصور
+    private Dictionary<int, System.Timers.Timer> shopTimers = new(); // مؤقتات الصور
+    private string M_Code; // الكود المخزن في sessionStorage
+    private string MarketName;
+    private string searchTerm = ""; // نص البحث
+    private int id_customer;
+
+    // تحميل البيانات عند التهيئة
+    protected override async Task OnInitializedAsync()
+    {
+        M_Code = await JS.InvokeAsync<string>("sessionStorage.getItem", "M_Code");
+        MarketName = await JS.InvokeAsync<string>("sessionStorage.getItem", "MarketName");
+
+        searchTerm = await JS.InvokeAsync<string>("sessionStorage.getItem", "searchQuery");
+        var customerIdString = await JS.InvokeAsync<string>("sessionStorage.getItem", "id_customer");
+        id_customer = int.TryParse(customerIdString, out var parsedValue) ? parsedValue : 0;
+
+
+
+
+        if (!string.IsNullOrEmpty(M_Code))
+        {
+            await LoadVendorData();
+            StartTimersForShops();
+        }
+        else
+        {
+            Console.WriteLine("Market code is missing in session storage.");
+        }
+
+        await SearchShops();
+    }
+
+    // تحميل بيانات المحلات
+    private async Task LoadVendorData()
+    {
+        try
+        {
+            vendorData = await Http.GetFromJsonAsync<List<ShopeControllServiceDTO>>($"https://localhost:7173/api/Shops/GetAllShopeWithImage?marketCode={M_Code}");
+            filteredVendorData = vendorData;
+
+            // تعيين الفهارس الافتراضية
+            foreach (var shop in vendorData)
+            {
+                if (shop.Images != null && shop.Images.Any())
+                {
+                    currentImageIndexes[shop.Id] = 0; // التأكد من وجود المؤشر
+                    var timer = new System.Timers.Timer(3000);
+                    timer.Elapsed += (sender, args) =>
+                    {
+                        if (currentImageIndexes.ContainsKey(shop.Id))
+                        {
+                            currentImageIndexes[shop.Id] = (currentImageIndexes[shop.Id] + 1) % shop.Images.Count;
+                            InvokeAsync(StateHasChanged);
+                        }
+                    };
+                    timer.Start();
+                    shopTimers[shop.Id] = timer;
+                }
+                // if (shop.Images != null && shop.Images.Any())
+                // {
+                //    currentImageIndexes[shop.Id] = 0;
+                // }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching vendor data: {ex.Message}");
+        }
+    }
+
+    // البحث عن المحلات
+    private async Task SearchShops()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                filteredVendorData = await Http.GetFromJsonAsync<List<ShopeControllServiceDTO>>($"https://localhost:7173/api/Shops/search?marketCode={M_Code}&search={searchTerm}");
+            }
+            else
+            {
+                filteredVendorData = vendorData;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching for shops: {ex.Message}");
+        }
+    }
+
+    public async Task UpdateVisitorCountWithJson(int shopId, string marketCode)
+    {
+        try
+        {
+            // تحديد رابط الـ API مع تضمين المعاملات في الـ URL
+            string apiUrl = $"https://localhost:7173/api/MarketControl/UpdateVisitorCount?shopId={shopId}&marketCode={marketCode}";
+
+            // إرسال الطلب باستخدام PUT
+            var response = await Http.PutAsync(apiUrl, null);
+
+            // التحقق من حالة الاستجابة
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Visitor count updated successfully.");
+            }
+            else
+            {
+                Console.WriteLine($"Failed to update visitor count. Status code: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating visitor count: {ex.Message}");
+        }
+    }
+    // حفظ القيم في sessionStorage والانتقال إلى صفحة أخرى
+    private async Task SaveToSessionAndNavigate(int id,string mCode, string city, string lastStore)
+    {
+        try
+        {
+            var tableName = $"S_{mCode}{city}{lastStore}";
+            await JS.InvokeVoidAsync("sessionStorage.setItem", "TableName", tableName);
+            await JS.InvokeVoidAsync("sessionStorage.setItem", "searchTerm", searchTerm);
+
+            if( id_customer != 0 )
+            {
+                await UpdateVisitorCountWithJson(id, mCode);
+            }
+
+
+
+
+            NavigationManager.NavigateTo("/shop-customer");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving to session and navigating: {ex.Message}");
+        }
+    }
+
+    // بدء مؤقتات الصور
+    private void StartTimersForShops()
+    {
+        // التحقق من أن vendorData ليست null وتحتوي على عناصر
+        if (vendorData == null || !vendorData.Any())
+        {
+            Console.WriteLine("Vendor data is null or empty.");
+            return;
+        }
+
+        foreach (var shop in vendorData)
+        {
+            // التحقق من أن Images ليست null وتحتوي على عناصر
+            if (shop.Images != null && shop.Images.Any())
+            {
+                try
+                {
+                    // إنشاء مؤقت جديد لكل محل
+                    var timer = new System.Timers.Timer(3000);
+                    timer.Elapsed += (sender, args) =>
+                    {
+                        // التحقق من وجود المفتاح في القاموس
+                        if (currentImageIndexes.ContainsKey(shop.Id))
+                        {
+                            currentImageIndexes[shop.Id] = (currentImageIndexes[shop.Id] + 1) % shop.Images.Count;
+                            InvokeAsync(StateHasChanged);
+                        }
+                    };
+                    timer.Start();
+
+                    // إضافة المؤقت إلى القاموس
+                    shopTimers[shop.Id] = timer;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error initializing timer for shop {shop.Id}: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Shop {shop.Id} has no images.");
+            }
+        }
+    }
+
+
+    // التعامل مع ضغط مفتاح Enter في البحث
+    private async void HandleEnterKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await  SearchShops();
+        }
+    }
+
+    // تنظيف المؤقتات عند التخلص من المكون
+    public void Dispose()
+    {
+        foreach (var timer in shopTimers.Values)
+        {
+            timer.Stop();
+            timer.Dispose();
+        }
+        shopTimers.Clear();
+    }
+}
+ *@
+
+
+            @page "/CustomerShow"
+@using System.Text.Json
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+ @inject ApiService ApiService
+<h3>محلات @MarketName</h3>
+
+<!-- حقل البحث -->
+<div class="mb-3">
+    <input @bind="searchTerm" @onkeypress="HandleEnterKeyPress" class="form-control" placeholder="Search for shops..." />
+    <button @onclick="SearchShops" class="btn btn-primary mt-2">بحث</button>
+</div>
+
+@if (vendorData == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!filteredVendorData.Any())
+{
+    <p>No data found for this vendor.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var shop in filteredVendorData)
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Shop Name: @shop.Name</h5>
+                        <p class="card-text"><strong>Address:</strong> @shop.Region</p>
+                        <p class="card-text"><strong>Street:</strong> @shop.Street</p>
+                        <p class="card-text"><strong>Nearest Point:</strong> @shop.NerestPoint</p>
+                        <p class="card-text"><strong>Visitor:</strong> @shop.NVistor</p>
+                        <p class="card-text"><strong>IsLock:</strong> @(shop.IsLock ? "مغلق" : "مفتوح")</p>
+                        <p class="card-text"><strong>StartWork:</strong>  @shop.StartWork </p>
+                        <p class="card-text"><strong>EndWork:</strong>  @shop.EndWork </p>
+                        <!-- عرض الصور -->
+                        <div class="product-images">
+                            @if (shop.Images != null && shop.Images.Count > 0 && currentImageIndexes.TryGetValue(shop.Id, out var currentIndex))
+                            {
+                                <div class="product-image-container">
+                                  @*   <img src=$"{@_apiBaseUrl}api/Shops/GetImageForSRC?imagePath =@shop.Path/@shop.Images[currentIndex]"
+                                    alt="Shop Image"
+                                    class="img-fluid rounded"
+                                    style="height: 200px; object-fit: cover;" /> *@
+                                    <img src="@($"{_apiBaseUrl}api/Shops/GetImageForSRC?imagePath={shop.Path}/{shop.Images[currentIndex]}")"
+                                         alt="Shop Image"
+                                         class="img-fluid rounded"
+                                         style="height: 200px; object-fit: cover;" />
+                                </div>
+                            }
+                            else
+                            {
+                                <p><em>No images available for this shop.</em></p>
+                            }
+                        </div>
+
+                        <!-- زر للانتقال إلى صفحة جديدة -->
+                        <button class="btn btn-primary"
+                        @onclick="() => SaveToSessionAndNavigate(shop.Id, shop.Market_Code, shop.City, shop.Last_VendorCode)"
+                        disabled="@(shop.IsLock)">
+                            الذهاب إلى المحل
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<ShopeControllServiceDTO> vendorData; // قائمة المحلات بالكامل
+    private List<ShopeControllServiceDTO> filteredVendorData; // المحلات المفلترة بناءً على البحث
+    private Dictionary<int, int> currentImageIndexes = new(); // فهارس الصور
+    private Dictionary<int, System.Timers.Timer> shopTimers = new(); // مؤقتات الصور
+    private string M_Code; // الكود المخزن في sessionStorage
+    private string MarketName;
+    private string searchTerm = ""; // نص البحث
+    private int id_customer;
+    private string _apiBaseUrl = "";
+
+    private string visitorToken;
+
+    public class ApiResponse<T>
+    {
+        public string Message { get; set; }
+        public T Data { get; set; }
+    }
+
+  
+
+
+    // تحميل البيانات عند التهيئة
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        visitorToken = await JS.InvokeAsync<string>("localStorage.getItem", "VisitorToken");
+        if (string.IsNullOrEmpty(visitorToken))
+        {
+            visitorToken = Guid.NewGuid().ToString();
+            await JS.InvokeVoidAsync("localStorage.setItem", "VisitorToken", visitorToken);
+        }
+        M_Code = await JS.InvokeAsync<string>("sessionStorage.getItem", "M_Code");
+        MarketName = await JS.InvokeAsync<string>("sessionStorage.getItem", "MarketName");
+
+        searchTerm = await JS.InvokeAsync<string>("sessionStorage.getItem", "searchQuery");
+        var customerIdString = await JS.InvokeAsync<string>("sessionStorage.getItem", "id_customer");
+        id_customer = int.TryParse(customerIdString, out var parsedValue) ? parsedValue : 0;
+
+        if (!string.IsNullOrEmpty(M_Code))
+        {
+            await LoadVendorData();
+            StartTimersForShops();
+        }
+        else
+        {
+            Console.WriteLine("Market code is missing in session storage.");
+        }
+
+        await SearchShops();
+    }
+
+ 
+
+    private async Task LoadVendorData()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"{_apiBaseUrl}api/Shops/GetAllShopeWithImage?marketCode={M_Code}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                
+                // إذا كانت البيانات موجودة يتم قراءتها مباشرة
+                vendorData = await response.Content.ReadFromJsonAsync<List<ShopeControllServiceDTO>>();
+                foreach (var vendor in vendorData)
+                {
+                    vendor.StartWorkTime = TimeOnly.TryParse(vendor.StartWork, out var parsedStartWork) ? parsedStartWork : null;
+                    vendor.EndWorkTime = TimeOnly.TryParse(vendor.EndWork, out var parsedEndWork) ? parsedEndWork : null;
+                }
+
+                filteredVendorData = vendorData;
+                SetDefaultImageIndexes();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // إذا لم يتم العثور على بيانات
+                var errorResponse = await response.Content.ReadFromJsonAsync<ApiResponse<List<ShopeControllServiceDTO>>>();
+                Console.WriteLine(errorResponse.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching vendor data: {ex.Message}");
+        }
+    }
+
+    private async Task SearchShops()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                var url = $"{_apiBaseUrl}api/Shops/search?marketCode={M_Code}&search={Uri.EscapeDataString(searchTerm)}";
+                var responseMessage = await Http.GetAsync(url);
+
+                if (responseMessage.IsSuccessStatusCode)
+                {
+                    var responseContent = await responseMessage.Content.ReadAsStringAsync();
+
+                    if (!string.IsNullOrWhiteSpace(responseContent))
+                    {
+                        // تحقق إذا كانت الاستجابة تحتوي على النص "nodata"
+                        if (responseContent.Trim().ToLower() == "nodata")
+                        {
+                            Console.WriteLine("No data available for the search.");
+                            filteredVendorData = new List<ShopeControllServiceDTO>();
+                            SetDefaultImageIndexes();
+                        }
+                        else
+                        {
+                            // محاولة تحويل الاستجابة إلى JSON
+                            var responseData = JsonSerializer.Deserialize<List<ShopeControllServiceDTO>>(responseContent, new JsonSerializerOptions
+                                {
+                                    PropertyNameCaseInsensitive = true
+                                });
+
+                            if (responseData != null && responseData.Any())
+                            {
+                                filteredVendorData = new List<ShopeControllServiceDTO>();
+                                filteredVendorData = responseData;
+                                SetDefaultImageIndexes();
+                                StartTimersForShops();
+                            }
+                            else
+                            {
+                                Console.WriteLine("No shops found matching the search criteria.");
+                                filteredVendorData = new List<ShopeControllServiceDTO>();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Empty response received.");
+                        filteredVendorData = new List<ShopeControllServiceDTO>();
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Error: {responseMessage.StatusCode}");
+                }
+            }
+            else
+            {
+                filteredVendorData = vendorData;
+            }
+
+            StartTimersForShops();
+        }
+        catch (HttpRequestException httpEx)
+        {
+            Console.WriteLine($"HTTP Error: {httpEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching for shops: {ex.Message}");
+        }
+    }
+
+
+
+
+    // التعامل مع ضغط مفتاح Enter في البحث
+    private async Task HandleEnterKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchShops();
+        }
+    }
+
+    private void SetDefaultImageIndexes()
+    {
+        foreach (var shop in filteredVendorData) // استخدم filteredVendorData هنا بدلاً من vendorData
+        {
+            if (shop.Images != null && shop.Images.Any())
+            {
+                currentImageIndexes[shop.Id] = 0; // تعيين المؤشر الافتراضي للصورة الأولى
+            }
+            else
+            {
+                currentImageIndexes[shop.Id] = -1; // لا توجد صور
+            }
+        }
+    }
+    // بدء مؤقتات الصور
+    private void StartTimersForShops()
+    {
+        // التحقق من أن vendorData ليست null وتحتوي على عناصر
+        if (vendorData == null || !vendorData.Any())
+        {
+            Console.WriteLine("Vendor data is null or empty.");
+            return;
+        }
+
+        foreach (var shop in vendorData)
+        {
+            // التحقق من أن Images ليست null وتحتوي على عناصر
+            if (shop.Images != null && shop.Images.Any())
+            {
+                try
+                {
+                    // إنشاء مؤقت جديد لكل محل
+                    var timer = new System.Timers.Timer(3000);
+                    timer.Elapsed += (sender, args) =>
+                    {
+                        // التحقق من وجود المفتاح في القاموس
+                        if (currentImageIndexes.ContainsKey(shop.Id))
+                        {
+                            currentImageIndexes[shop.Id] = (currentImageIndexes[shop.Id] + 1) % shop.Images.Count;
+                            InvokeAsync(StateHasChanged);
+                        }
+                    };
+                    timer.Start();
+
+                    // إضافة المؤقت إلى القاموس
+                    shopTimers[shop.Id] = timer;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error initializing timer for shop {shop.Id}: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Shop {shop.Id} has no images.");
+            }
+        }
+    }
+
+    private void StopTimersForShops()
+    {
+        foreach (var timer in shopTimers.Values)
+        {
+            timer.Stop();
+        }
+        shopTimers.Clear(); // مسح المؤقتات القديمة
+    }
+
+
+    // حفظ القيم في sessionStorage والانتقال إلى صفحة أخرى
+    private async Task SaveToSessionAndNavigate(int id, string mCode, string city, string lastStore)
+    {
+        try
+        {
+            var tableName = $"S_{mCode}{city}{lastStore}";
+            await JS.InvokeVoidAsync("sessionStorage.setItem", "TableName", tableName);
+            await JS.InvokeVoidAsync("sessionStorage.setItem", "searchTerm", searchTerm);
+
+            if (id_customer != 0)
+            {
+                await UpdateVisitorCountWithJson(id, mCode);
+            }
+
+
+
+
+            NavigationManager.NavigateTo("/shop-customer");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving to session and navigating: {ex.Message}");
+        }
+    }
+
+    public async Task UpdateVisitorCountWithJson(int shopId, string marketCode)
+    {
+        try
+        {
+            string visitorToken = await JS.InvokeAsync<string>("localStorage.getItem", "VisitorToken");
+            // تحديد رابط الـ API مع تضمين المعاملات في الـ URL
+            string apiUrl = $"{_apiBaseUrl}api/MarketControl/UpdateVisitorCount?shopId={shopId}&marketCode={marketCode}";
+
+            // إرسال الطلب باستخدام PUT
+            var response = await Http.PutAsync(apiUrl, null);
+
+            // التحقق من حالة الاستجابة
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Visitor count updated successfully.");
+            }
+            else
+            {
+                Console.WriteLine($"Failed to update visitor count. Status code: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating visitor count: {ex.Message}");
+        }
+    }
+
+
+}

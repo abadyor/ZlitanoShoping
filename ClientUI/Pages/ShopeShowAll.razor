@@ -1,0 +1,98 @@
+﻿@page "/ShopeShowAll"
+@inject HttpClient Http
+@using APPL.Services
+@inject NavigationManager Navigation
+@using System.Text.Json
+@inject IJSRuntime JS
+@inject ApiService ApiService
+@code {
+    [Parameter]
+    public string MarketCode { get; set; }
+    private string _apiBaseUrl = "";
+
+    private List<ShopeControllServiceDTO> shops = new List<ShopeControllServiceDTO>();
+    private bool isLoading = true;
+    private string errorMessage;
+    private string marketcode;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        await LoadShops();
+    }
+
+    private async Task LoadShops()
+    {
+        marketcode = await JS.InvokeAsync<string>("sessionStorage.getItem", "marketcode");
+        try
+        {
+            var response = await Http.GetFromJsonAsync<List<ShopeControllServiceDTO>>($"{_apiBaseUrl}api/Shops/GetAllShope?marketCode={marketcode}");
+            if (response != null)
+            {
+                shops = response;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading shops: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    private async Task AddSessionTableNameGoToTable(string tablename)
+    {
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "TableName", tablename);
+        //await JS.InvokeVoidAsync("sessionStorage.setItem", "serchQuery", searchQuery);
+       // NavigationManager.NavigateTo("/display-images-for-customer");
+        Navigation.NavigateTo("/ShopeShowAll");
+    }
+}
+
+@if (isLoading)
+{
+    <div class="spinner-border text-primary" role="status">
+        <span class="sr-only">Loading...</span>
+    </div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
+}
+else if (shops.Any())
+{
+    <div class="row">
+        @foreach (var shop in shops)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                   @*  <img src="https://via.placeholder.com/150" class="card-img-top" alt="Shop Image"> *@
+                    <div class="card-body">
+                        <h5 class="card-title">@shop.Name</h5>
+                       
+                        <p class="card-text">Region: @shop.Region</p>
+                        <p class="card-text">Street: @shop.Street</p>
+              
+                    </div>
+                    <div class="card-footer">
+                        @{
+                            var tablename =$"S_{marketcode}{shop.City}{shop.Last_VendorCode}";
+                        }
+                        <button type="button" @onclick="() => AddSessionTableNameGoToTable(tablename)" class="btn btn-primary">الدهاب الي المحل</button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="alert alert-info" role="alert">
+        No shops available for the selected market code.
+    </div>
+}

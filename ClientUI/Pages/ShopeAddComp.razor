@@ -1,0 +1,156 @@
+﻿ @page "/add-shop-for-vendor"
+
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@using APPL.Services
+@inject ApiService ApiService
+<h3 class="text-center my-4">Add New Shop</h3>
+
+<EditForm Model="shopModel" OnValidSubmit="HandleSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="container">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label for="Name" class="form-label">Shop Name</label>
+                <InputText id="Name" class="form-control" @bind-Value="shopModel.Name" placeholder="Enter shop name" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="MarketCode" class="form-label">Market</label>
+                <InputSelect id="MarketCode" class="form-select" @bind-Value="shopModel.Market_Code">
+                    <option value="">Select Market</option>
+                    @foreach (var market in markets.Where(m => !m.IsLock))
+                    {
+                        <option value="@market.Mcode">@market.Name</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="col-md-6">
+                <label for="City" class="form-label">City</label>
+                <InputSelect id="City" class="form-select" @bind-Value="shopModel.City">
+                    <option value="">Select City</option>
+                    @foreach (var city in cities)
+                    {
+                        <option value="@city.CCode">@city.Name</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="col-md-6">
+                <label for="Region" class="form-label">Region</label>
+                <InputText id="Region" class="form-control" @bind-Value="shopModel.Region" placeholder="Enter region" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="Street" class="form-label">Street</label>
+                <InputText id="Street" class="form-control" @bind-Value="shopModel.Street" placeholder="Enter street" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="NerestPoint" class="form-label">Nearest Point</label>
+                <InputText id="NerestPoint" class="form-control" @bind-Value="shopModel.NerestPoint" placeholder="Enter nearest point" />
+            </div>
+            <div class="col-md-6">
+               <label for="startWork" class="form-label">وقت بدء العمل</label>
+                <input @bind="shopModel.StartWork" type="time" class="form-control" id="StartWork" />
+            </div>
+
+             <div class="col-md-6">
+               <label for="endWork" class="form-label">وقت انتهاء العمل</label>
+                <input @bind="shopModel.EndWork" type="time" class="form-control" id="endWork" />
+            </div>
+              <div class="col-md-6">
+                <label for="notes" class="form-label">ملاحظات</label>
+                <textarea @bind="shopModel.Notes" class="form-control" id="notes" rows="3"></textarea>
+            </div>
+           
+        </div>
+
+        <div class="text-center mt-4">
+            <button type="submit" class="btn btn-primary px-5">Submit</button>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    private ShopControllCreateServiceDTO shopModel = new ShopControllCreateServiceDTO();
+ 
+    private string _apiBaseUrl = "";
+
+    // Lists for Markets and Cities
+    private List<MarketGetAllServiceDTO> markets = new();
+    private List<CitiesGetServiceDTO> cities = new();
+    private string vendorId ;
+
+    // Load data when the component is initialized
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        vendorId = await JS.InvokeAsync<string>("sessionStorage.getItem", "id_vendor");
+        await LoadMarkets();
+        await LoadCities();
+    }
+
+    private async Task LoadMarkets()
+    {
+        try
+        {
+            string marketApiUrl = $"{_apiBaseUrl}api/Market/GetAll";
+            var result = await Http.GetFromJsonAsync<List<MarketGetAllServiceDTO>>(marketApiUrl);
+            if (result != null)
+            {
+                markets = result;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading markets: {ex.Message}");
+        }
+    }
+
+    private async Task LoadCities()
+    {
+        try
+        {
+            string cityApiUrl = $"{_apiBaseUrl}api/Cities/get-cities";
+            var result = await Http.GetFromJsonAsync<List<CitiesGetServiceDTO>>(cityApiUrl);
+            if (result != null)
+            {
+                cities = result;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading cities: {ex.Message}");
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        shopModel.Vendor_Id = Convert.ToInt32(vendorId);
+        try
+        {
+            string apiUrl = $"{_apiBaseUrl}api/MarketControl/Create";
+            var response = await Http.PostAsJsonAsync(apiUrl, shopModel);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("alert", "Shop added successfully!");
+                NavigationManager.NavigateTo("/vendor-data");
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Failed to add shop.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error adding shop: {ex.Message}");
+        }
+    }
+}
+

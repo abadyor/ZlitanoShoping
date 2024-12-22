@@ -1,0 +1,116 @@
+﻿<style>
+    .cart-dropdown {
+        position: absolute;
+        top: 70px;
+        right: 20px;
+        background-color: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        width: 300px;
+        max-height: 400px;
+        overflow-y: auto;
+        z-index: 1000;
+        padding: 10px;
+    }
+
+        .cart-dropdown .cart-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .cart-dropdown .cart-footer {
+            margin-top: 10px;
+            text-align: center;
+        }
+</style>
+
+<div class="cart-dropdown">
+    <div class="cart-header">
+        سلة المشتريات
+    </div>
+
+    @if (cartItems != null && cartItems.Any())
+    {
+        <ul class="list-group">
+            @foreach (var item in cartItems)
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <span>@item.ProductName</span>
+                        <small>(@item.Quantity)</small>
+                    </div>
+                    <div>
+                        <span>@item.Total.ToString("C")</span>
+                        <button class="btn btn-sm btn-danger ms-2" @onclick="() => RemoveItem(item.ProductId)">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </li>
+            }
+        </ul>
+        <div class="cart-footer">
+            <button class="btn btn-primary btn-sm" @onclick="ConfirmOrder">تأكيد الطلب</button>
+        </div>
+    }
+    else
+    {
+        <p>السلة فارغة</p>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback OnCartUpdated { get; set; }
+
+    private List<MainLayout.CartItem> cartItems;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCartItems();
+    }
+
+    private async Task LoadCartItems()
+    {
+        var cartItemsJson = await JS.InvokeAsync<string>("sessionStorage.getItem", "cartItems");
+
+        if (!string.IsNullOrEmpty(cartItemsJson))
+        {
+            cartItems = JsonSerializer.Deserialize<List<MainLayout.CartItem>>(cartItemsJson);
+        }
+        else
+        {
+            cartItems = new List<MainLayout.CartItem>();
+        }
+    }
+
+    private async Task RemoveItem(int productId)
+    {
+        // إزالة العنصر من القائمة
+        var itemToRemove = cartItems.FirstOrDefault(item => item.ProductId == productId);
+        if (itemToRemove != null)
+        {
+            cartItems.Remove(itemToRemove);
+
+            // تحديث SessionStorage
+            var updatedCartItemsJson = JsonSerializer.Serialize(cartItems);
+            await JS.InvokeVoidAsync("sessionStorage.setItem", "cartItems", updatedCartItemsJson);
+
+            // تحديث العدّاد وإعادة عرض القائمة
+            await OnCartUpdated.InvokeAsync();
+        }
+    }
+
+    private async Task ConfirmOrder()
+    {
+        // تنفيذ عملية تأكيد الطلب
+        await JS.InvokeVoidAsync("alert", "تم تأكيد الطلب بنجاح!");
+        cartItems.Clear();
+
+        // تحديث SessionStorage
+        await JS.InvokeVoidAsync("sessionStorage.removeItem", "cartItems");
+
+        // تحديث العدّاد وإعادة عرض القائمة
+        await OnCartUpdated.InvokeAsync();
+    }
+}

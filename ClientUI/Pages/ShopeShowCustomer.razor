@@ -1,0 +1,1109 @@
+﻿@* 
+@page "/shop-customer"
+@inject HttpClient Http
+@using System.Net.Http.Json
+@inject NavigationManager Navigation
+@using System.Text.Json
+@inject IJSRuntime JS
+@using APPL.Services
+
+<style>
+    .product-image-container {
+        width: 100%;
+        height: 150px;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+
+    .product-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .product-card {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 10px;
+        padding: 15px;
+        background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        flex: 1 1 calc(33.33% - 20px);
+        box-sizing: border-box;
+    }
+
+    .products-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    .product-details {
+        padding: 10px;
+    }
+
+    .discount-label {
+        background-color: #ff0000;
+        color: white;
+        padding: 5px;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    .edit-button {
+        background-color: #4CAF50; /* لون الزر */
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-align: center;
+        margin-top: 10px;
+    }
+
+        .edit-button:hover {
+            background-color: #45a049; /* تأثير التمرير */
+        }
+</style>
+
+<h3>Products</h3>
+
+@if (isLoading)
+{
+    <p>Loading products...</p>
+}
+else if (products.Any())
+{
+    <div class="products-grid">
+        @foreach (var product in products)
+        {
+            <div class="product-card">
+                <div class="product-details">
+                    <h4>@product.ProductName</h4>
+                    <p>@product.Description</p>
+                    <p><strong>Price:</strong> $@product.Price</p>
+                    <p><strong>Discounted Price:</strong> $@product.DiscountedPrice</p>
+                    @if (product.HasDiscount)
+                    {
+                        <p class="discount-label">On Discount!</p>
+                    }
+                    <!-- زر التعديل -->
+              
+
+
+                </div>
+                <div class="product-images">
+                    @if (product.Images != null && product.Images.Count > 0)
+                    {
+                        // تحقق من أن currentImageIndex هو ضمن نطاق الصور المتاحة
+                        if (productImagesIndex.ContainsKey(product.Id))
+                        {
+                            int currentImageIndexForProduct = productImagesIndex[product.Id];
+                            <div class="product-image-container">
+                                <img src="https://localhost:7173/api/Shops/GetImageForSRC?imagePath=@product.path/@product.Images[currentImageIndexForProduct]"
+                                     alt="Product Image"
+                                     class="product-image" />
+                            </div>
+                        }
+                        else
+                        {
+                            <p>No image available</p>
+                        }
+                    }
+                    else
+                    {
+                        <p>No images available</p>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+ *@
+@* @code {
+    private string TableName { get; set; }
+    private List<ItemDataWithImagesServiceDTO> products = new();
+    private bool isLoading = true;
+    private Dictionary<int, int> productImagesIndex = new();  
+    private Timer imageTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        TableName = await JS.InvokeAsync<string>("sessionStorage.getItem", "TableName");
+
+        if (string.IsNullOrWhiteSpace(TableName))
+        {
+            Console.WriteLine("Error: TableName is missing or invalid.");
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            // استدعاء API لجلب بيانات المنتجات
+            products = await Http.GetFromJsonAsync<List<ItemDataWithImagesServiceDTO>>($"https://localhost:7173/api/Shops/GetItemsDataWithImages?tableName={TableName}");
+
+            // Initialize image index for each product
+            foreach (var product in products)
+            {
+                productImagesIndex[product.Id] = 0; // Start with the first image
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading products: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+
+        // البدء في تغيير الصور بشكل دوري
+        StartImageRotation();
+    }
+
+    // بدء المؤقت لتغيير الصورة
+    private void StartImageRotation()
+    {
+        if (products.Any() && products.FirstOrDefault()?.Images?.Any() == true)
+        {
+            imageTimer = new Timer(ChangeImage, null, 0, 3000); // تغيير الصورة كل 3 ثواني
+        }
+    }
+
+    // دالة لتغيير الصورة
+    private void ChangeImage(object state)
+    {
+        foreach (var product in products)
+        {
+            // التحقق من أن currentImageIndex لا يتجاوز حجم القائمة
+            if (product.Images != null && product.Images.Count > 0)
+            {
+                productImagesIndex[product.Id]++; // التبديل للصورة التالية
+                if (productImagesIndex[product.Id] >= product.Images.Count)
+                {
+                    productImagesIndex[product.Id] = 0; // العودة للصورة الأولى إذا تم الوصول لآخر صورة
+                }
+            }
+        }
+
+        InvokeAsync(StateHasChanged);  // تحديث واجهة المستخدم
+    }
+
+    // دالة لتوجيه المستخدم إلى صفحة التعديل
+    private void EditProduct(int productId)
+    {
+        // يمكنك إما توجيه المستخدم إلى صفحة تعديل معينة أو عرض نافذة تعديل
+        // على سبيل المثال:
+        Navigation.NavigateTo($"/edit-item/{productId}");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // إيقاف المؤقت عند التخلص من المكون
+        imageTimer?.Dispose();
+    }
+}
+ *@
+
+    @*     @page "/shop-customer"
+@inject HttpClient Http
+@using System.Net.Http.Json
+@inject NavigationManager Navigation
+@using System.Text.Json
+@inject IJSRuntime JS
+@using APPL.Services
+@using ClientUI.Pages
+
+
+@layout LayoutCustomer
+ 
+ 
+<Alert @ref="alertComponent"></Alert>
+
+<style>
+    .product-image-container {
+        width: 100%;
+        height: 150px;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+
+    .product-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .product-card {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 10px;
+        padding: 15px;
+        background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        flex: 1 1 calc(33.33% - 20px);
+        box-sizing: border-box;
+    }
+
+    .products-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    .product-details {
+        padding: 10px;
+    }
+
+    .discount-label {
+        background-color: #ff0000;
+        color: white;
+        padding: 5px;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    .add-to-cart-button {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-align: center;
+        margin-top: 10px;
+    }
+
+        .add-to-cart-button:hover {
+            background-color: #0056b3;
+        }
+
+
+
+
+
+
+</style>
+<link href="custom-styles.css" rel="stylesheet" />
+
+<h3>Products</h3>
+
+
+
+@if (isLoading)
+{
+    <p>Loading products...</p>
+}
+else if (products.Any())
+{
+    <div class="products-grid">
+        @foreach (var product in products)
+        {
+            <div class="product-card">
+                <div class="product-details">
+                    <h4>@product.ProductName</h4>
+                    <p>@product.Description</p>
+                    <p><strong>Price:</strong> $@product.Price</p>
+                    <p><strong>Discounted Price:</strong> $@product.DiscountedPrice</p>
+                    @if (product.HasDiscount)
+                    {
+                        <p class="discount-label">On Discount!</p>
+                    }
+                    <button class="add-to-cart-button" @onclick="() => ShowModal(product)">Add to Cart</button>
+                </div>
+                <div class="product-images">
+                    @if (product.Images != null && product.Images.Count > 0)
+                    {
+                        int currentImageIndex = productImagesIndex.ContainsKey(product.Id) ? productImagesIndex[product.Id] : 0;
+                        <div class="product-image-container">
+                            <img src="https://localhost:7173/api/Shops/GetImageForSRC?imagePath=@product.path/@product.Images[currentImageIndex]"
+                                 alt="Product Image"
+                                 class="product-image" />
+                        </div>
+                    }
+                    else
+                    {
+                        <p>No images available</p>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<!-- Modal for Adding to Cart -->
+@if (showModal)
+{
+    
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add to Cart</h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@selectedProduct?.ProductName</p>
+                    <p>Price: $@selectedProduct?.Price</p>
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">Quantity</label>
+                        <input type="number" id="quantity" class="form-control" @bind="quantity" min="1" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="AddToCart">Add</button>
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                </div>
+            </div>
+        </div>
+        </div>
+   
+}
+<!-- Custom Alert Modal -->
+@if (showAlert)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">تنبيه</h5>
+                </div>
+                <div class="modal-body">
+                    <p>@alertMessage</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="OnOk">تسجيل</button>
+                    <button type="button" class="btn btn-secondary" @onclick="OnCancel">إلغاء</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private Alert alertComponent=new Alert();
+
+
+    private string TableName { get; set; }
+    private List<ItemDataWithImagesServiceDTO> products = new();
+    private List<CartItem> cartItems = new();
+    private bool isLoading = true;
+    private Dictionary<int, int> productImagesIndex = new();
+    private bool showModal = false;
+    private ItemDataWithImagesServiceDTO? selectedProduct;
+    private int quantity = 1;
+    private int id_customer;
+
+    private bool showAlert = false;
+    private string alertMessage = "";
+
+    // Show Alert Method
+    private void ShowAlert(string message)
+    {
+        alertMessage = message;
+        showAlert = true;
+    }
+
+    // OK Button Click Handler
+    private void OnOk()
+    {
+        showAlert = false;
+        JS.InvokeVoidAsync("sessionStorage.setItem", "currentPage", "Customer");
+        Navigation.NavigateTo("/Login");
+        // تنفيذ أي إجراء إضافي هنا
+    }
+
+    // Cancel Button Click Handler
+    private void OnCancel()
+    {
+        showAlert = false;
+        //  Console.WriteLine("User clicked Cancel");
+        // تنفيذ أي إجراء إضافي هنا
+    }
+
+
+
+
+    /*
+    private async Task ShowCustomAlert()
+    {
+    var dotNetRef = DotNetObjectReference.Create(this);
+
+        await JS.InvokeVoidAsync("customAlertWithButtons",
+        "Login successful!",
+        dotNetRef, // تمرير الكائن القابل للاستدعاء
+        nameof(OnRegister), // اسم الدالة المسجلة
+        nameof(OnOk)); // اسم الدالة المسجلة
+    }
+
+    [JSInvokable]
+    public void OnRegister()
+    {
+    Navigation.NavigateTo("/register"); // الانتقال إلى صفحة التسجيل
+    }
+
+    [JSInvokable]
+    public void OnOk()
+    {
+    Console.WriteLine("User clicked OK");
+    }
+    */
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        TableName = await JS.InvokeAsync<string>("sessionStorage.getItem", "TableName");
+
+        var customerIdString = await JS.InvokeAsync<string>("sessionStorage.getItem", "id_customer");
+        id_customer = int.TryParse(customerIdString, out var parsedValue) ? parsedValue : 0;
+        //   var customerIdString = await JS.InvokeAsync<string>("sessionStorage.getItem", "id_customer");
+
+        //  if (int.TryParse(customerIdString, out var id_customer))
+        //  {
+        //     id_customer = id_customer;
+        //  }
+
+        if (string.IsNullOrWhiteSpace(TableName))
+        {
+            Console.WriteLine("Error: TableName is missing or invalid.");
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            products = await Http.GetFromJsonAsync<List<ItemDataWithImagesServiceDTO>>($"https://localhost:7173/api/Shops/GetItemsDataWithImages?tableName={TableName}");
+            foreach (var product in products)
+            {
+                productImagesIndex[product.Id] = 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading products: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowModal(ItemDataWithImagesServiceDTO product)
+    {
+        if (id_customer == 0)
+        {
+            //  ShowErrorAlert(); // عرض التنبيه عند عدم وجود تسجيل دخول
+            //alertComponent.Show("Please login to add items to the cart.", "warning");
+
+            ShowAlert("يجب التسجيل أولا");
+        }
+        else
+        {
+            selectedProduct = product;
+            quantity = 1;
+            showModal = true; // عرض المودال
+            StateHasChanged();
+        }
+    }
+
+    private void CloseModal()
+    {
+        selectedProduct = null;
+        showModal = false;
+    }
+
+    private async Task AddToCart()
+    {
+      
+            if (selectedProduct != null)
+            {
+                cartItems.Add(new CartItem
+                    {
+                        ProductId = selectedProduct.Id,
+                        ProductName = selectedProduct.ProductName,
+                        Quantity = quantity,
+                        Price = selectedProduct.Price,
+                        Total = quantity * selectedProduct.Price
+                    });
+
+                await JS.InvokeVoidAsync("sessionStorage.setItem", "cartItems", JsonSerializer.Serialize(cartItems));
+                CloseModal();
+            }
+        
+   
+    }
+
+    public class CartItem
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; }
+        public int Quantity { get; set; }
+        public decimal Price { get; set; }
+        public decimal Total { get; set; }
+
+    }
+}
+
+
+ *@
+
+
+
+@page "/shop-customer"
+@inject HttpClient Http
+@using System.Net.Http.Json
+@inject NavigationManager Navigation
+@using System.Text.Json
+@inject IJSRuntime JS
+@using APPL.Services
+@using ClientUI.Pages
+@using System.Timers
+@inject ApiService ApiService
+@layout LayoutCustomer
+
+
+<Alert @ref="alertComponent" ></Alert>
+
+<style>
+    .product-image-container {
+        width: 100%;
+        height: 150px;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+
+    .product-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .product-card {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 10px;
+        padding: 15px;
+        background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        flex: 1 1 calc(33.33% - 20px);
+        box-sizing: border-box;
+    }
+
+    .products-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    .product-details {
+        padding: 10px;
+    }
+
+    .discount-label {
+        background-color: #ff0000;
+        color: white;
+        padding: 5px;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    .add-to-cart-button {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-align: center;
+        margin-top: 10px;
+    }
+
+        .add-to-cart-button:hover {
+            background-color: #0056b3;
+        }
+
+    .search-bar {
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: center;
+    }
+
+    .search-input {
+        width: 80%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+
+    .search-button {
+        padding: 10px 15px;
+        border: none;
+        background-color: #28a745;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+
+        .search-button:hover {
+            background-color: #218838;
+        }
+
+    .alert {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1050;
+        padding: 20px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        max-width: 400px;
+        text-align: center;
+    }
+</style>
+<link href="custom-styles.css" rel="stylesheet" />
+
+<h3>Products</h3>
+ 
+<!-- Search Bar -->
+<div class="search-bar">
+    <input type="text" class="search-input" placeholder="Search for a product..." @bind="searchQuery" />
+    <button class="search-button" @onclick="FilterProducts">Search</button>
+</div>
+
+@if (isLoading)
+{
+    <p>Loading products...</p>
+}
+else if (filteredProducts.Any())
+{
+    <div class="products-grid">
+        @foreach (var product in filteredProducts)
+        {
+            <div class="product-card">
+                <div class="product-details">
+                    <h4>@product.ProductName</h4>
+                    <p>@product.Description</p>
+                    <p><strong>Price:</strong> $@product.Price</p>
+                    <p><strong>Discounted Price:</strong> $@product.DiscountedPrice</p>
+                    @if (product.HasDiscount)
+                    {
+                        <p class="discount-label">On Discount!</p>
+                    }
+                    <button class="add-to-cart-button" @onclick="() => ShowModal(product)">Add to Cart</button>
+                </div>
+                <div class="product-images">
+                    @if (product.Images != null && product.Images.Count > 0)
+                    {
+                        <div class="product-image-container">
+                           @*  <img src="@_apiBaseUrl api/Shops/GetImageForSRC?imagePath=@product.path/@product.Images[productImagesIndex[product.Id]]"
+                                 alt="Product Image"
+                                 class="img-fluid rounded"
+                                 style="height: 200px; object-fit: cover; margin-bottom: 10px;" /> *@
+                            <img src="@($"{_apiBaseUrl}api/Shops/GetImageForSRC?imagePath={product.path}/{product.Images[productImagesIndex[product.Id]]}")"
+                                 alt="Product Image"
+                                 class="img-fluid rounded"
+                                 style="height: 200px; object-fit: cover; margin-bottom: 10px;" />
+
+                        </div>
+                    }
+                    else
+                    {
+                        <p>No images available</p>
+                    }
+                </div>
+
+            </div>
+        }
+    </div>
+}
+
+<!-- Modal for Adding to Cart -->
+@if (showModal)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add to Cart</h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@selectedProduct?.ProductName</p>
+                    <p>Price: $@selectedProduct?.Price</p>
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">Quantity</label>
+                        <input type="number" id="quantity" class="form-control" @bind="quantity" min="1" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="AddToCart">Add</button>
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Custom Alert Modal -->
+@if (showAlert)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">تنبيه</h5>
+                </div>
+                <div class="modal-body">
+                    <p>@alertMessage</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="OnOk">تسجيل</button>
+                    <button type="button" class="btn btn-secondary" @onclick="OnCancel">إلغاء</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+
+
+
+
+    [CascadingParameter]
+    private LayoutCustomer LayoutCustomer { get; set; }
+
+    private string _apiBaseUrl = "";
+    private Alert alertComponent = new Alert();
+    private string TableName { get; set; }
+    private List<ItemDataWithImagesServiceDTO> products = new();
+    private List<ItemDataWithImagesServiceDTO> filteredProducts = new();
+    private List<CartItem> cartItems ;
+    private bool isLoading = true;
+    private Dictionary<int, int> productImagesIndex = new();
+    private bool showModal = false;
+    private ItemDataWithImagesServiceDTO? selectedProduct;
+    private int quantity = 1;
+    private int id_customer;
+    private string searchQuery = "";
+
+    private bool showAlert = false;
+    private string alertMessage = "";
+    private bool DataFromLayoutCustomer;
+    private string currentImage; // The current image to be displayed
+    private Timer _timer;
+    private int _imageIndex = 0;
+ 
+
+
+    private async Task UpdateBasket()
+    {
+        try
+        {
+
+
+            if (LayoutCustomer != null)
+            {
+                await LayoutCustomer.RefreshBasket();
+
+
+                Console.WriteLine("Basket updated 1");
+            }
+
+            Console.WriteLine("Basket updated successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating basket: {ex.Message}");
+        }
+    }
+
+
+
+    private void ShowAlert(string message)
+    {
+        alertMessage = message;
+        showAlert = true;
+
+        StateHasChanged();
+
+    }
+
+    private void OnOk()
+    {
+        showAlert = false;
+        JS.InvokeVoidAsync("sessionStorage.setItem", "currentPage", "Customer");
+        Navigation.NavigateTo("/Login");
+    }
+
+    private void OnCancel()
+    {
+        showAlert = false;
+    }
+
+    /*
+    protected override async Task OnInitializedAsync()
+    {
+
+        TableName = await JS.InvokeAsync<string>("sessionStorage.getItem", "TableName");
+        var customerIdString = await JS.InvokeAsync<string>("sessionStorage.getItem", "id_customer");
+        id_customer = int.TryParse(customerIdString, out var parsedValue) ? parsedValue : 0;
+
+        searchQuery = await JS.InvokeAsync<string>("sessionStorage.getItem", "searchTerm");
+
+
+
+        if (string.IsNullOrWhiteSpace(TableName))
+        {
+            Console.WriteLine("Error: TableName is missing or invalid.");
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            products = await Http.GetFromJsonAsync<List<ItemDataWithImagesServiceDTO>>($"https://localhost:7173/api/Shops/GetItemsDataWithImages?tableName={TableName}");
+            filteredProducts = new List<ItemDataWithImagesServiceDTO>(products); // initialize with all products
+            foreach (var product in products)
+            {
+                productImagesIndex[product.Id] = 0;
+                currentImage = product.Images.FirstOrDefault();
+            }
+          
+            if (searchQuery != "" || searchQuery != null)
+            {
+                FilterProducts();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading products: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+    */
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        TableName = await JS.InvokeAsync<string>("sessionStorage.getItem", "TableName");
+        var customerIdString = await JS.InvokeAsync<string>("sessionStorage.getItem", "id_customer");
+        id_customer = int.TryParse(customerIdString, out var parsedValue) ? parsedValue : 0;
+
+        searchQuery = await JS.InvokeAsync<string>("sessionStorage.getItem", "searchTerm");
+
+        if (string.IsNullOrWhiteSpace(TableName))
+        {
+            Console.WriteLine("Error: TableName is missing or invalid.");
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            products = await Http.GetFromJsonAsync<List<ItemDataWithImagesServiceDTO>>($"{_apiBaseUrl}api/Shops/GetItemsDataWithImages?tableName={TableName}");
+            filteredProducts = new List<ItemDataWithImagesServiceDTO>(products);
+
+            foreach (var product in products)
+            {
+                // ضبط الصورة الأولى كافتراضية
+                productImagesIndex[product.Id] = 0;
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                FilterProducts();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading products: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task UpdateImageAsync()
+    {
+        while (true)
+        {
+            foreach (var product in products)
+            {
+                if (product.Images != null && product.Images.Count > 0)
+                {
+                    // تحديث الصورة الحالية
+                    productImagesIndex[product.Id] = (productImagesIndex[product.Id] + 1) % product.Images.Count;
+                }
+            }
+            StateHasChanged(); // تحديث واجهة المستخدم
+            await Task.Delay(5000); // تأخير 5 ثوانٍ
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _ = UpdateImageAsync(); // بدء عملية التحديث بشكل منفصل
+        }
+    }
+
+
+
+    private async void ShowModal(ItemDataWithImagesServiceDTO product)
+    {
+
+
+        if (id_customer == 0 )
+        {
+            ShowAlert("يجب التسجيل أولا");
+
+        }
+        else
+        {
+
+            if (LayoutCustomer != null)
+            {
+                DataFromLayoutCustomer = LayoutCustomer.GetDataFromDataBase();
+
+            }
+            if (DataFromLayoutCustomer == false)
+            {
+                var sessionCartItems =await  JS.InvokeAsync<string>("sessionStorage.getItem", $"cartItems_{id_customer}");
+                if (!string.IsNullOrEmpty(sessionCartItems))
+                {
+                    cartItems = JsonSerializer.Deserialize<List<CartItem>>(sessionCartItems);
+                }
+                else
+                {
+                    cartItems = new List<CartItem>();
+                }
+
+                // التحقق من وجود عناصر من متاجر مختلفة في السلة
+                if (cartItems != null && cartItems.Any(item => item.TableName != TableName))
+                {
+                    await  JS.InvokeVoidAsync("alert", "لا يمكن إضافة منتجات من متاجر مختلفة إلى نفس السلة.");
+                    return;
+                }
+
+                selectedProduct = product;
+                quantity = 1;
+                showModal = true;
+                StateHasChanged();
+            }
+            else
+            {
+                await  JS.InvokeVoidAsync("alert", "يجب تاكيد السلة اولا");
+                return;
+            }
+            
+        }
+    }
+
+    private void CloseModal()
+    {
+        selectedProduct = null;
+        showModal = false;
+    }
+
+   
+    private async Task AddToCart()
+    {
+         
+
+
+            // التحقق من وجود بيانات في sessionStorage إذا كانت cartItems فارغة
+            if (cartItems == null || !cartItems.Any())
+            {
+                var sessionCartItems = await JS.InvokeAsync<string>("sessionStorage.getItem", $"cartItems_{id_customer}");
+                if (!string.IsNullOrEmpty(sessionCartItems))
+                {
+                    // إذا كانت هناك بيانات، استعدها وعبئ cartItems
+                    cartItems = JsonSerializer.Deserialize<List<CartItem>>(sessionCartItems);
+                }
+                else
+                {
+                    // إذا لم تكن هناك بيانات، تهيئة cartItems
+                    cartItems = new List<CartItem>();
+                }
+            }
+
+            if (selectedProduct != null)
+            {
+              
+              
+
+                // إضافة المنتج إلى السلة
+                cartItems.Add(new CartItem
+                    {
+                        TableName = TableName,
+                        ProductId = selectedProduct.Id,
+                        ProductName = selectedProduct.ProductName,
+                        Quantity = quantity,
+                        Price = selectedProduct.Price,
+                        Total = quantity * selectedProduct.Price
+                    });
+
+                // تحديث sessionStorage
+                await JS.InvokeVoidAsync("sessionStorage.setItem", $"cartItems_{id_customer}", JsonSerializer.Serialize(cartItems));
+
+                if (LayoutCustomer != null)
+                {
+                    await LayoutCustomer.RefreshBasket();
+                    Console.WriteLine("Basket updated after AddToCart");
+                }
+
+                CloseModal();
+            }
+
+            await InvokeAsync(StateHasChanged);
+
+     
+    }
+
+
+
+    private void FilterProducts()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            filteredProducts = new List<ItemDataWithImagesServiceDTO>(products); // show all products if no search term
+        }
+        else
+        {
+            filteredProducts = products.Where(p => p.ProductName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)
+            ||   p.Description.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+    }
+
+
+    public class CartItem
+    {
+        public int Id { get; set; } = 0;
+        public string TableName { get; set; }
+        public int ProductId { get; set; }
+        public string ProductName { get; set; }
+        public int Quantity { get; set; }
+        public decimal Price { get; set; }
+        public decimal Total { get; set; }
+    }
+}
+
+
+    

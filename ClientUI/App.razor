@@ -1,0 +1,82 @@
+﻿@* <Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <p role="alert">Sorry, there's nothing at this address.</p>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+
+
+ *@
+
+@*  @using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Navigation
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <p role="alert">Sorry, there's nothing at this address.</p>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    // هذه الطريقة لتوجيه المستخدم إلى الصفحة الافتراضية عندما لا يوجد مسار
+    protected override void OnInitialized()
+    {
+        
+        Navigation.NavigateTo("/ShowMarketCustomerComponent", true);
+    }
+}
+ *@
+@using Blazored.LocalStorage
+@inject ILocalStorageService localStorage
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Navigation
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <p role="alert">Sorry, there's nothing at this address.</p>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // لتخزين قيمة في localStorage
+        // await localStorage.SetItemAsync("myKey", "someValue");
+
+        // لاسترجاع القيمة من localStorage
+        // var value = await localStorage.GetItemAsync<string>("myKey");
+
+        // Console.WriteLine(value); يجب أن يظهر "someValue"
+
+        // التحقق مما إذا كانت الصفحة الحالية هي صفحة ShowMarketCustomerComponent أم لا
+        // if (!Navigation.Uri.Contains("/ShowMarketCustomerComponent"))
+        // {
+        //     التوجيه إلى صفحة ShowMarketCustomerComponent فقط إذا لم تكن الصفحة الحالية هي نفسها
+        //     Navigation.NavigateTo("/ShowMarketCustomerComponent", true);
+        // }
+    }
+}
+

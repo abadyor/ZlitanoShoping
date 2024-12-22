@@ -1,0 +1,152 @@
+﻿@page "/Register"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+@using APPL.Services
+@inject ApiService ApiService
+<h3>إدخال نص</h3>
+
+<div class="input-container">
+    <EditForm Model="inputRegister" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-group">
+            <label for="inputText">أدخل كود التحقق:</label>
+            <InputText id="inputText" @bind-Value="inputRegister.LogUser" class="form-control" />
+            <ValidationMessage For="@(() => inputRegister.LogUser)" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">إرسال</button>
+    </EditForm>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <p class="message">@message</p>
+    }
+</div>
+
+<style>
+    .input-container {
+        max-width: 400px;
+        margin: auto;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        background-color: #f9f9f9;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #007bff;
+        border-radius: 5px;
+        outline: none;
+    }
+
+        .form-control:focus {
+            border-color: #0056b3;
+        }
+
+    .btn {
+        padding: 10px 15px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+    .message {
+        margin-top: 15px;
+        color: green;
+        font-weight: bold;
+    }
+</style>
+
+@code {
+    private VendorLoginServiceDTO inputRegister = new VendorLoginServiceDTO();
+    private string _apiBaseUrl = "";
+    private string message;
+    private string username;
+    private int id_vendor;
+    private string password;
+    private string namepage;
+    private int id_customer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        username = await JS.InvokeAsync<string>("sessionStorage.getItem", "username");
+        password = await JS.InvokeAsync<string>("sessionStorage.getItem", "password");
+        namepage = await JS.InvokeAsync<string>("sessionStorage.getItem", "namepage");
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        inputRegister.Username = username; // تعيين اسم المستخدم
+        inputRegister.Password = password; // تعيين كلمة المرور
+        if (namepage == "Vendor")
+        {
+            // إرسال البيانات إلى API
+            var response = await Http.PostAsJsonAsync($"{_apiBaseUrl}api/Vendors/GetVendorWhereuserpasslogcode", inputRegister);
+            if (response.IsSuccessStatusCode)
+            {
+                var responseData = await response.Content.ReadFromJsonAsync<VendorResponseServiceDTO>();
+               id_vendor = responseData.Id; // استلام id
+               // id_vendor = 5;
+                await JS.InvokeVoidAsync("sessionStorage.setItem", "id_vendor", id_vendor);
+                message = "تم إرسال النص بنجاح!";
+                ResetForm();
+
+
+                NavigationManager.NavigateTo("/vendor-data"); // استبدل "/NextPage" بالمسار الصحيح
+            }
+            else
+            {
+                message = "حدث خطأ أثناء إرسال النص.";
+            }
+
+        }
+        else if (namepage == "Customer")
+        {
+            var response = await Http.PostAsJsonAsync($"{_apiBaseUrl}api/Customer/GetCustomerWhereuserpasslogcode", inputRegister);
+            if (response.IsSuccessStatusCode)
+            {
+                var responseData = await response.Content.ReadFromJsonAsync<VendorResponseServiceDTO>();
+                //id_vendor = responseData.Id; // استلام id
+                id_customer =responseData.Id;
+                await JS.InvokeVoidAsync("sessionStorage.setItem", "id_customer", id_customer);
+                message = "تم إرسال النص بنجاح!";
+                ResetForm();
+
+
+                NavigationManager.NavigateTo("/"); // استبدل "/NextPage" بالمسار الصحيح
+            }
+            else
+            {
+                message = "حدث خطأ أثناء إرسال النص.";
+            }
+        }
+    }
+
+    private void ResetForm()
+    {
+        inputRegister = new VendorLoginServiceDTO();
+        message = string.Empty;
+    }
+
+   
+}
+
+ 

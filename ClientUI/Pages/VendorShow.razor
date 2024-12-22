@@ -1,0 +1,196 @@
+﻿@page "/vendor-data"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@using APPL.Services
+ @inject ApiService ApiService
+
+
+<h3>Vendor Data</h3>
+<!-- زر للانتقال إلى صفحة إضافة محل -->
+<div class="mb-4">
+    <button class="btn btn-success" @onclick="NavigateToAddShop">+ Add New Shop</button>
+</div>
+
+@if (vendorData == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!vendorData.Any())
+{
+    <p>No data found for this vendor.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var item in vendorData)
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <h1>اسم السوق : @item.MarketName</h1>
+                    <div class="card-body">
+                        <h5 class="card-title">Shop Name: @item.Name</h5>
+                        <p class="card-text"><strong>Address:</strong> @item.Region</p>
+                        <p class="card-text"><strong>Street:</strong> @item.Street</p>
+                        <p class="card-text"><strong>Nearest Point:</strong> @item.NerestPoint</p>
+                        <p class="card-text"><strong>Visitor:</strong> @item.NVistor</p>
+                        <p class="card-text"><strong>IsLock:</strong> @(item.IsLock ? "مغلق" : "مفتوح")</p>
+                        <p class="card-text"><strong>StartWork:</strong> @item.StartWork</p>
+                        <p class="card-text"><strong>EndWork:</strong> @item.EndWork</p>
+
+                        <button class="btn btn-primary"
+                                @onclick="() => SaveToSessionAndNavigateToUpdate(item.Market_Code,item.Id)">
+                          تعديل
+                        </button>
+                        <!-- زر للانتقال إلى صفحة جديدة -->
+                        <button class="btn btn-primary"
+                                @onclick="() => SaveToSessionAndNavigate(item.Market_Code, item.City, item.Last_VendorCode)">
+                            اضافة اصناف
+                        </button>
+                        <button class="btn btn-outline-secondary"
+                                @onclick="() => GoToSessionAndNavigate(item.Market_Code, item.City, item.Last_VendorCode)">
+                            عرض الاصناف
+                        </button>
+                    @if(item.IsLock == false)
+                    {
+                            <button class="btn btn-outline-danger"
+                                    @onclick="() => CloseShope(item.Id,item.Market_Code,true)">
+                                اغلاق المحل
+                            </button>
+                    }else
+                    {
+                            <button class="btn btn-outline-secondary"
+                                    @onclick="() => CloseShope(item.Id,item.Market_Code,false)">
+                                فتح المحل
+                            </button>
+                    }
+                       
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+
+@code {
+
+    private List<ShopeControllWithMarketNameServiceDTO> vendorData;
+    private string _apiBaseUrl = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        // جلب id_vendor من sessionStorage
+        var vendorIdString = await JS.InvokeAsync<string>("sessionStorage.getItem", "id_vendor");
+
+        if (int.TryParse(vendorIdString, out var vendorId))
+        {
+            await LoadVendorData(vendorId);
+        }
+        else
+        {
+            Console.WriteLine("Failed to retrieve vendor ID from sessionStorage.");
+        }
+    }
+
+    private async Task LoadVendorData(int vendorId)
+    {
+        try
+        {
+            vendorData = await Http.GetFromJsonAsync<List<ShopeControllWithMarketNameServiceDTO>>($"{_apiBaseUrl}api/Shops/GetShopeByVendor?vendorId={vendorId}");
+        
+            foreach (var vendor in vendorData)
+            {
+                vendor.StartWorkTime = TimeOnly.TryParse(vendor.StartWork, out var parsedStartWork) ? parsedStartWork : null;
+                vendor.EndWorkTime = TimeOnly.TryParse(vendor.EndWork, out var parsedEndWork) ? parsedEndWork : null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching vendor data: {ex.Message}");
+        }
+    }
+    private async Task SaveToSessionAndNavigateToUpdate(string mCode, int id)
+    {
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "M_Code",  mCode  );
+        NavigationManager.NavigateTo($"/edit-shop/{id}");
+    }
+    
+
+    private async Task SaveToSessionAndNavigate(string mCode, string city, string lastStore)
+    {
+        // حفظ القيم في sessionStorage
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "mCode", mCode);
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "city", city);
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "lastStore", lastStore);
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "TableName", "S_" + mCode + city + lastStore);
+
+
+        // إعادة التوجيه إلى صفحة التفاصيل
+        NavigationManager.NavigateTo("/dynamic");
+        
+    }
+
+    private async Task GoToSessionAndNavigate(string mCode, string city, string lastStore)
+    {
+        // حفظ القيم في sessionStorage
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "mCode", mCode);
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "city", city);
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "lastStore", lastStore);
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "TableName", "S_" + mCode + city + lastStore);
+
+        Console.WriteLine("Navigating to /ShowForVendors with TableName: S_" + mCode + city + lastStore);
+
+        // إعادة التوجيه إلى صفحة التفاصيل
+        NavigationManager.NavigateTo("/shop-vendor");
+       // NavigationManager.NavigateTo("/dynamic");
+    }
+
+    public async Task UpdateIsLockWithJson(int shopId, string marketCode,bool IsLock)
+    {
+        try
+        {
+            // تحديد رابط الـ API مع تضمين المعاملات في الـ URL
+            string apiUrl = $"{_apiBaseUrl}api/MarketControl/UpdateIsLockShope?shopId={shopId}&marketCode={marketCode}&IsLock={IsLock}";
+
+            // إرسال الطلب باستخدام PUT
+            var response = await Http.PutAsync(apiUrl, null);
+
+            // التحقق من حالة الاستجابة
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("IsLock updated successfully.");
+            }
+            else
+            {
+                Console.WriteLine($"Failed to update   Status code: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating IsLock : {ex.Message}");
+        }
+    }
+    private async Task CloseShope(int itemId,string marketCode,bool IsLock)
+    {
+        await UpdateIsLockWithJson(itemId, marketCode, IsLock);
+
+        var vendorIdString = await JS.InvokeAsync<string>("sessionStorage.getItem", "id_vendor");
+
+        if (int.TryParse(vendorIdString, out var vendorId))
+        {
+            await LoadVendorData(vendorId);
+        }
+        else
+        {
+            Console.WriteLine("Failed to retrieve vendor ID from sessionStorage.");
+        }
+    }
+    
+    private void NavigateToAddShop()
+    {
+        NavigationManager.NavigateTo("/add-shop-for-vendor");
+    }
+
+}

@@ -1,0 +1,658 @@
+﻿@* @page "/ShowMarketCustomerComponent"
+@inject HttpClient Http
+@using System.Net.Http.Json
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+
+<h3>الأسواق</h3>
+
+@if (markets == null)
+{
+    <p>جاري تحميل البيانات...</p>
+}
+else if (!markets.Any())
+{
+    <p>لا توجد بيانات لعرضها.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var market in markets)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">@market.Name</h5>
+                        <p class="card-text">
+                            <span class="badge @(market.IsLock ? "bg-danger" : "bg-success")">
+                                @(market.IsLock ? "مغلق" : "مفتوح")
+                            </span>
+                        </p>
+                    </div>
+                </div>
+                <button class="btn btn-primary"
+                        @onclick="() => SaveToSessionAndNavigate(market.Mcode)">
+                    اضافة التفاصيل
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private MainLayout MainLayout { get; set; }
+    private List<MarketGetAllDTO> markets;
+
+
+    private async Task UpdateBasket()
+    {
+        if (MainLayout != null)
+        {
+            await MainLayout.RefreshBasket();
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        UpdateBasket();
+        try
+        {
+            // استدعاء API للحصول على البيانات
+            markets = await Http.GetFromJsonAsync<List<MarketGetAllDTO>>("https://localhost:7173/api/Market/GetAll");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching markets: {ex.Message}");
+        }
+    }
+
+
+    private async Task SaveToSessionAndNavigate(string mCode)
+    {
+        // حفظ القيم في sessionStorage
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "mCode", mCode);
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "city", city);
+        //  await JS.InvokeVoidAsync("sessionStorage.setItem", "lastStore", lastStore);
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "M_Code",  mCode );
+
+
+        // إعادة التوجيه إلى صفحة التفاصيل
+        NavigationManager.NavigateTo("/CustomerShow");
+
+    }
+
+
+}
+ *@
+
+
+
+
+@*    @page "/ShowMarketCustomerComponent"
+@inject HttpClient Http
+@using System.Net.Http.Json
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+
+<h3>الأسواق التي تحتوي على المنتج</h3>
+
+@if (markets == null)
+{
+    <p>جاري تحميل البيانات...</p>
+}
+else if (!markets.Any())
+{
+    <p>لا توجد أسواق تحتوي على هذا المنتج.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var market in markets)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">@market.Name</h5>
+                        <p class="card-text">
+                            <span class="badge @(market.IsLock ? "bg-danger" : "bg-success")">
+                                @(market.IsLock ? "مغلق" : "مفتوح")
+                            </span>
+                        </p>
+                    </div>
+                </div>
+                <button class="btn btn-primary"
+                        @onclick="() => SaveToSessionAndNavigate(market.Mcode)">
+                    اضافة التفاصيل
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private MainLayout MainLayout { get; set; }
+    private List<MarketGetAllDTO> markets;
+
+    // قيمة الكود للمنتج المراد البحث عنه
+    private string productCode = "xc"; // مثال، يمكن تغييره
+
+    private async Task UpdateBasket()
+    {
+        if (MainLayout != null)
+        {
+            await MainLayout.RefreshBasket();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        UpdateBasket();
+        try
+        {
+            // استدعاء API للحصول على المحلات التي تحتوي على هذا المنتج
+            var shops = await Http.GetFromJsonAsync<List<ShopeControllServiceDTO>>("https://localhost:7173/api/market/searchShopFromMarket?search=" + productCode);
+
+            if (shops == null || !shops.Any())
+            {
+                markets = new List<MarketGetAllDTO>(); // لا توجد أسواق تحتوي على المنتج
+            }
+            else
+            {
+                // تصفية الأسواق بناءً على وجود المحلات التي تحتوي على المنتج
+                var marketCodesWithProduct = shops.Select(shop => shop.Market_Code).Distinct().ToList();
+
+                // استدعاء API للحصول على جميع الأسواق
+                var allMarkets = await Http.GetFromJsonAsync<List<MarketGetAllDTO>>("https://localhost:7173/api/Market/GetAll");
+
+                // تصفية الأسواق التي تحتوي على المحلات التي تحتوي على المنتج
+                markets = allMarkets.Where(market => marketCodesWithProduct.Contains(market.Mcode)).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching markets: {ex.Message}");
+        }
+    }
+
+    private async Task SaveToSessionAndNavigate(string mCode)
+    {
+        // حفظ القيم في sessionStorage
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "M_Code", mCode);
+
+        // إعادة التوجيه إلى صفحة التفاصيل
+        NavigationManager.NavigateTo("/CustomerShow");
+    }
+}
+ *@
+
+
+@* 
+                @page "/ShowMarketCustomerComponent"
+@inject HttpClient Http
+@using System.Net.Http.Json
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+
+<h3>الأسواق التي تحتوي على المنتج</h3>
+
+<div class="mb-3">
+    <input type="text" class="form-control" placeholder="ابحث عن منتج"
+           @bind="productCode" @oninput="OnSearchInput" />
+</div>
+
+@if (markets == null)
+{
+    <p>جاري تحميل البيانات...</p>
+}
+else if (!markets.Any())
+{
+    <p>لا توجد أسواق تحتوي على هذا المنتج.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var market in markets)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">@market.Name</h5>
+                        <p class="card-text">
+                            <span class="badge @(market.IsLock ? "bg-danger" : "bg-success")">
+                                @(market.IsLock ? "مغلق" : "مفتوح")
+                            </span>
+                        </p>
+                    </div>
+                </div>
+                <button class="btn btn-primary"
+                        @onclick="() => SaveToSessionAndNavigate(market.Mcode)">
+                    اضافة التفاصيل
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private MainLayout MainLayout { get; set; }
+    private List<MarketGetAllDTO> markets;
+
+    // قيمة الكود للمنتج المراد البحث عنه
+    private string productCode = ""; // يبدأ فارغاً
+
+    private async Task UpdateBasket()
+    {
+        if (MainLayout != null)
+        {
+            await MainLayout.RefreshBasket();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMarkets(); // تحميل الأسواق عند بداية التحميل
+    }
+
+    private async Task OnSearchInput()
+    {
+        // تنفيذ البحث عند التغيير في مربع البحث
+        await LoadMarkets();
+    }
+
+    private async Task LoadMarkets()
+    {
+
+        try
+        {
+
+            // استدعاء API للحصول على المحلات التي تحتوي على هذا المنتج
+            var shops = await Http.GetFromJsonAsync<List<ShopeControllServiceDTO>>($"https://localhost:7173/api/market/searchShopFromMarket?search={productCode}");
+
+            if (shops == null || !shops.Any())
+            {
+                markets = new List<MarketGetAllDTO>(); // لا توجد أسواق تحتوي على المنتج
+            }
+            else
+            {
+                // تصفية الأسواق بناءً على وجود المحلات التي تحتوي على المنتج
+                var marketCodesWithProduct = shops.Select(shop => shop.Market_Code).Distinct().ToList();
+
+                // استدعاء API للحصول على جميع الأسواق
+                var allMarkets = await Http.GetFromJsonAsync<List<MarketGetAllDTO>>("https://localhost:7173/api/Market/GetAll");
+
+                // تصفية الأسواق التي تحتوي على المحلات التي تحتوي على المنتج
+                markets = allMarkets.Where(market => marketCodesWithProduct.Contains(market.Mcode)).ToList();
+            }
+
+
+
+        }
+
+
+
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching markets: {ex.Message}");
+        }
+    }
+
+    private async Task SaveToSessionAndNavigate(string mCode)
+    {
+        // حفظ القيم في sessionStorage
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "M_Code", mCode);
+
+        // إعادة التوجيه إلى صفحة التفاصيل
+        NavigationManager.NavigateTo("/CustomerShow");
+    }
+}
+ *@
+@page "/"
+@inject HttpClient Http
+@using System.Net.Http.Json
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+@inject ApiService ApiService
+
+<h3>واجهة الأسواق</h3>
+
+<div class="mb-3 position-relative">
+    <input type="text" class="form-control" placeholder="ابحث عن منتج"
+           @bind="productCode" @oninput="OnSearchInput" @onfocus="ShowSuggestions" @onblur="HideSuggestionsAsync" />
+    <button class="btn btn-info mt-2" @onclick="OnBadgeButtonClick">
+        زر للبحث
+    </button>
+
+    @if (suggestions.Any() && showSuggestions)
+    {
+        <ul class="list-group position-absolute w-100 shadow-sm" style="z-index: 100;">
+            @foreach (var suggestion in suggestions)
+            {
+                <li class="list-group-item list-group-item-action"
+                    @onclick="() => SelectSuggestion(suggestion.ProductName)">
+                    @suggestion.ProductName
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@if (markets == null)
+{
+    <p>جاري تحميل البيانات...</p>
+}
+else if (!markets.Any())
+{
+    <p class="text-danger">لا توجد أسواق تحتوي على هذا المنتج.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var market in markets)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">@market.Name</h5>
+                        <p class="card-text">
+                            <span class="badge @(market.IsLock ? "bg-danger" : "bg-success")">
+                                @(market.IsLock ? "مغلق" : "مفتوح")
+                            </span>
+                        </p>
+                    </div>
+                </div>
+                <button class="btn btn-primary"
+                        @onclick="() => SaveToSessionAndNavigate(market.Name, market.Mcode)">
+                    الدخول إلى السوق
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private MainLayout MainLayout { get; set; }
+    private List<MarketGetAllDTO> markets;
+    private List<MarketGetAllDTO> allMarkets;
+    private List<DictionaryServiceDTO> productSuggestions = new List<DictionaryServiceDTO>();
+
+    private List<DictionaryServiceDTO> suggestions = new List<DictionaryServiceDTO>(); // قائمة الاقتراحات المعروضة
+    private string productCode = "";
+    private string _apiBaseUrl = "";
+    private bool showSuggestions = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _apiBaseUrl = ApiService.GetApiBaseUrl();
+
+            // جلب بيانات الأسواق
+            allMarkets = await Http.GetFromJsonAsync<List<MarketGetAllDTO>>($"{_apiBaseUrl}api/Market/GetAll");
+            markets = new List<MarketGetAllDTO>(allMarkets);
+
+            // جلب بيانات المنتجات
+            productSuggestions = await Http.GetFromJsonAsync<List<DictionaryServiceDTO>>($"{_apiBaseUrl}api/Dictionary/GetAll");
+            Console.WriteLine($"Loaded {productSuggestions.Count} products."); // طباعة عدد المنتجات في وحدة التحكم
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing: {ex.Message}");
+        }
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        productCode = e.Value.ToString(); // تحديث النص المدخل
+        if (string.IsNullOrWhiteSpace(productCode))
+        {
+            suggestions.Clear(); // مسح القائمة إذا كان النص فارغًا
+            showSuggestions = false;
+        }
+        else
+        {
+            suggestions = await SearchProductsAsync(productCode);
+            showSuggestions = suggestions.Any(); // إظهار الاقتراحات فقط إذا كانت هناك نتائج
+        }
+    }
+
+    private async Task<List<DictionaryServiceDTO>> SearchProductsAsync(string searchTerm)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return new List<DictionaryServiceDTO>();
+
+            var response = await Http.GetFromJsonAsync<List<DictionaryServiceDTO>>(
+                $"{_apiBaseUrl}api/Dictionary/searchProduct?searchTerm={searchTerm}");
+
+            return response ?? new List<DictionaryServiceDTO>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching products: {ex.Message}");
+            return new List<DictionaryServiceDTO>();
+        }
+    }
+
+    private void ShowSuggestions()
+    {
+        showSuggestions = true; // إظهار الاقتراحات عند الضغط على مربع البحث
+    }
+
+    private async Task HideSuggestionsAsync()
+    {
+        await Task.Delay(200); // تأخير بسيط
+        showSuggestions = false;
+    }
+
+    private void SelectSuggestion(string suggestion)
+    {
+        productCode = suggestion;
+        suggestions.Clear();
+        showSuggestions = false;
+        OnBadgeButtonClick();
+    }
+
+    private async Task SaveToSessionAndNavigate(string marketName, string mCode)
+    {
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "M_Code", mCode);
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "MarketName", marketName);
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "searchQuery", productCode);
+        NavigationManager.NavigateTo("/CustomerShow");
+    }
+
+    private async Task LoadMarkets(string searchCode)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(searchCode))
+            {
+                markets = new List<MarketGetAllDTO>(allMarkets); // إذا لم يكن هناك بحث، اعرض جميع الأسواق
+            }
+            else
+            {
+                var response = await Http.GetAsync($"{_apiBaseUrl}api/Shops/searchShopFromMarket?search={searchCode}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var shops = await response.Content.ReadFromJsonAsync<List<ShopeControllServiceDTO>>();
+                    if (shops != null && shops.Any())
+                    {
+                        var marketCodesWithProduct = shops.Select(shop => shop.Market_Code).Distinct().ToList();
+                        markets = allMarkets.Where(market => marketCodesWithProduct.Contains(market.Mcode)).ToList();
+                    }
+                    else
+                    {
+                        markets = new List<MarketGetAllDTO>(); // لا توجد نتائج
+                        Console.WriteLine("No markets found containing the product.");
+                    }
+                }
+                else
+                {
+                    markets = new List<MarketGetAllDTO>();
+                    Console.WriteLine($"Error: {response.StatusCode}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching markets: {ex.Message}");
+            markets = new List<MarketGetAllDTO>();
+        }
+    }
+
+    private async Task OnBadgeButtonClick()
+    {
+        await LoadMarkets(productCode); // تحديث قائمة الأسواق بناءً على المنتج المحدد
+    }
+}
+
+
+
+@*  @page "/"
+@inject HttpClient Http
+@using System.Net.Http.Json
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+ @inject ApiService ApiService
+<h3>واجهة الاسواق</h3>
+
+<div class="mb-3">
+    <input type="text" class="form-control" placeholder="ابحث عن منتج"
+    @bind="productCode" />
+    <button class="btn btn-info" @onclick="OnBadgeButtonClick">
+        زر للبحث
+    </button>
+</div>
+
+@if (markets == null)
+{
+    <p>جاري تحميل البيانات...</p>
+}
+else if (!markets.Any())
+{
+    <p class="text-danger">لا توجد أسواق تحتوي على هذا المنتج.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var market in markets)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">@market.Name</h5>
+                        <p class="card-text">
+                            <span class="badge @(market.IsLock ? "bg-danger" : "bg-success")">
+                                @(market.IsLock ? "مغلق" : "مفتوح")
+                            </span>
+                        </p>
+                    </div>
+                </div>
+                <button class="btn btn-primary"
+                @onclick="() => SaveToSessionAndNavigate(market.Name,market.Mcode)">
+                    الدخول الي السوق
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private MainLayout MainLayout { get; set; }
+   // private Localhost localhost = new Localhost();
+    private List<MarketGetAllDTO> markets; // قائمة الأسواق المعروضة
+    private List<MarketGetAllDTO> allMarkets; // قائمة الأسواق الكاملة المحملة مسبقًا
+    private string productCode = ""; // الكود الخاص بالمنتج للبحث
+    private string _apiBaseUrl ="";
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        // تحميل جميع الأسواق عند بداية التحميل
+        allMarkets = await Http.GetFromJsonAsync<List<MarketGetAllDTO>>($"{_apiBaseUrl}api/Market/GetAll");
+        markets = new List<MarketGetAllDTO>(allMarkets); // نسخ جميع الأسواق للعرض المبدئي
+       if (MainLayout != null)
+       {
+           await MainLayout.RefreshBasket();
+
+            
+        }
+    }
+
+    private async Task OnSearchInput()
+    {
+        // تنفيذ البحث عند كتابة المستخدم في مربع البحث
+        await LoadMarkets(productCode);
+    }
+
+    private async Task LoadMarkets(string searchCode)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(searchCode))
+            {
+                // إذا لم يكن هناك بحث، اعرض جميع الأسواق
+                markets = new List<MarketGetAllDTO>(allMarkets);
+            }
+            else
+            {
+                // استدعاء API للحصول على المحلات التي تحتوي على المنتج المطلوب
+                var response = await Http.GetAsync($"{_apiBaseUrl}api/Shops/searchShopFromMarket?search={searchCode}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var shops = await response.Content.ReadFromJsonAsync<List<ShopeControllServiceDTO>>();
+                    if (shops != null && shops.Any())
+                    {
+                        // استخراج أكواد الأسواق التي تحتوي على المنتج
+                        var marketCodesWithProduct = shops.Select(shop => shop.Market_Code).Distinct().ToList();
+
+                        // تصفية الأسواق محليًا باستخدام القائمة المحملة مسبقًا
+                        markets = allMarkets.Where(market => marketCodesWithProduct.Contains(market.Mcode)).ToList();
+                    }
+                    else
+                    {
+                        markets = new List<MarketGetAllDTO>(); // لا توجد نتائج
+                        Console.WriteLine("No markets found containing the product.");
+                    }
+                }
+                else
+                {
+                    markets = new List<MarketGetAllDTO>(); // في حالة حدوث خطأ في الاستجابة
+                    Console.WriteLine($"Error: {response.StatusCode}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching markets: {ex.Message}");
+            markets = new List<MarketGetAllDTO>(); // في حالة حدوث خطأ غير متوقع
+        }
+    }
+
+    private async Task SaveToSessionAndNavigate(string marketName,string mCode)
+    {
+        // حفظ القيم في sessionStorage
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "M_Code", mCode);
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "MarketName", marketName);
+        await JS.InvokeVoidAsync("sessionStorage.setItem", "searchQuery", productCode);
+
+
+
+        // إعادة التوجيه إلى صفحة التفاصيل
+        NavigationManager.NavigateTo("/CustomerShow");
+    }
+
+    // دالة عند الضغط على زر البحث
+    private async Task OnBadgeButtonClick()
+    {
+        // تنفيذ البحث باستخدام النص الموجود في مربع البحث
+        await LoadMarkets(productCode);
+    }
+}
+ *@
+ 

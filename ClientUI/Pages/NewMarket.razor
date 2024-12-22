@@ -1,0 +1,68 @@
+﻿@page "/add-market"
+
+@inject IJSRuntime JS
+@using APPL.Services
+@inject NavigationManager Navigation
+@inject HttpClient Http
+ @inject ApiService ApiService
+
+
+<EditForm Model="@market" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="name">اسم السوق</label>
+        <InputText id="name" class="form-control" @bind-Value="market.Name" />
+        <ValidationMessage For="@(() => market.Name)" />
+    </div>
+
+    <div class="form-group">
+        <label for="scode">رمز السوق</label>
+        <InputText id="scode" class="form-control" @bind-Value="market.Scode" />
+        <ValidationMessage For="@(() => market.Scode)" />
+    </div>
+
+    <div class="form-group">
+        <label for="sinstance">مثيل السوق</label>
+        <InputText id="sinstance" class="form-control" @bind-Value="market.SInstance" />
+        <ValidationMessage For="@(() => market.SInstance)" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">إضافة السوق</button>
+</EditForm>
+
+@code {
+    private MarketTBCreatetServiceDTO market = new MarketTBCreatetServiceDTO();
+    private string _apiBaseUrl = "";
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+
+    }
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"{_apiBaseUrl}api/Market/AddMarket", market);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/"); // إعادة توجيه عند النجاح
+            }
+            else
+            {
+                // التعامل مع الأخطاء في حال فشل الطلب
+                var errorDetails = await response.Content.ReadAsStringAsync();
+                // عرض رسالة خطأ للمستخدم إذا فشل الطلب
+            }
+        }
+        catch (Exception ex)
+        {
+            // التعامل مع الأخطاء في حالة فشل الاتصال
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+}

@@ -1,0 +1,158 @@
+﻿@page "/cheak-code-basket"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+@using APPL.Services
+@using System.Text.Json
+@layout LayoutCustomer
+ @inject ApiService ApiService
+<h3>إدخال نص</h3>
+
+<div class="input-container">
+    <EditForm Model="InputForLogBasket" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-group">
+            <label for="inputText">أدخل كود التحقق:</label>
+            <InputText id="inputText" @bind-Value="InputForLogBasket.LogUser" class="form-control" />
+            <ValidationMessage For="@(() => InputForLogBasket.LogUser)" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">إرسال</button>
+    </EditForm>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <p class="message">@message</p>
+    }
+</div>
+
+<style>
+    .input-container {
+    max-width: 400px;
+    margin: auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    background-color: #f9f9f9;
+    }
+
+    .form-group {
+    margin-bottom: 15px;
+    }
+
+    .form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #007bff;
+    border-radius: 5px;
+    outline: none;
+    }
+
+    .form-control:focus {
+    border-color: #0056b3;
+    }
+
+    .btn {
+    padding: 10px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    }
+
+    .btn:hover {
+    background-color: #0056b3;
+    }
+
+    .message {
+    margin-top: 15px;
+    color: green;
+    font-weight: bold;
+    }
+</style>
+
+@code {
+    [CascadingParameter]
+    private LayoutCustomer LayoutCustomer { get; set; }
+
+    private string _apiBaseUrl = "";
+    private InputForLogBasketServiceDTO InputForLogBasket = new InputForLogBasketServiceDTO();
+
+    private string message;
+    private int id_customer;
+    private int BasketId;
+    private bool isInitialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        if (firstRender)
+        {
+            string idCustomerStr = await JS.InvokeAsync<string>("sessionStorage.getItem", "id_customer");
+            string basketIdStr = await JS.InvokeAsync<string>("sessionStorage.getItem", "BasketId");
+
+            if (!string.IsNullOrEmpty(idCustomerStr) && !string.IsNullOrEmpty(basketIdStr)
+                && int.TryParse(idCustomerStr, out id_customer) && int.TryParse(basketIdStr, out BasketId))
+            {
+                InputForLogBasket.CustomerId = id_customer;
+                InputForLogBasket.BasketId = BasketId;
+                isInitialized = true; // تأكيد الإعداد بنجاح
+
+                Console.WriteLine($"Fetched from session: CustomerId={id_customer}, BasketId={BasketId}");
+            }
+            else
+            {
+                message = "تعذر استرجاع بيانات السلة.";
+            }
+
+            StateHasChanged(); // تحديث واجهة المستخدم بعد الإعداد
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (!isInitialized)
+        {
+            message = "لم يتم تحميل بيانات السلة. حاول مرة أخرى.";
+            return;
+        }
+
+        // إرسال البيانات إلى API
+        var response = await Http.PostAsJsonAsync($"{_apiBaseUrl}api/Basket/GetBasketWhereuserpasslogcode", InputForLogBasket);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var responseData = await response.Content.ReadFromJsonAsync<BasketGetByIdServiceDTO>();
+
+            message = "تم إرسال النص بنجاح!";
+            ResetForm();
+            //  await Task.Delay(1000); // خيار الانتظار قليلاً قبل إعادة التوجيه
+
+            // LayoutCustomer.UpdateCartCount(0);
+
+            if(LayoutCustomer !=null)
+            {
+             await LayoutCustomer.RefreshBasket();
+            }
+          
+            await JS.InvokeVoidAsync("sessionStorage.setItem", $"cartItems_{id_customer}", "");
+            NavigationManager.NavigateTo("/");
+        }
+        else
+        {
+            var errorResponse = await response.Content.ReadAsStringAsync();
+            message = $"حدث خطأ أثناء إرسال النص: {errorResponse}";
+        }
+    }
+
+    private void ResetForm()
+    {
+        InputForLogBasket = new InputForLogBasketServiceDTO();
+        message = string.Empty;
+    }
+}

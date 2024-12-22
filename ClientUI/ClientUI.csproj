@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+<BlazorWebAssemblyIcuDataMode>All</BlazorWebAssemblyIcuDataMode>
+	 
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Remove="Pages\CartComponent.razor" />
+    <Content Remove="Pages\CheckCodeForBasket.razor" />
+    <Content Remove="Pages\DisplyImage.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.8" PrivateAssets="all" />
+    <PackageReference Include="store2" Version="2.14.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\APPL\APPL.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <UpToDateCheckInput Remove="Pages\DisplyImage.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="Pages\CartComponent.razor" />
+    <_ContentIncludedByDefault Remove="Pages\CheckCodeForBasket.razor" />
+    <_ContentIncludedByDefault Remove="Pages\DisplyImage.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Pages\CartComponent.razor" />
+    <None Include="Pages\CheckCodeForBasket.razor" />
+    <None Include="Pages\DisplyImage.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <UpToDateCheckInput Remove="Pages\CartComponent.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <UpToDateCheckInput Remove="Pages\CheckCodeForBasket.razor" />
+  </ItemGroup>
+
+</Project>

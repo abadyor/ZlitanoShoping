@@ -1,0 +1,70 @@
+﻿@page "/show-markets"
+@inject HttpClient Http
+@using APPL.Services
+@inject NavigationManager Navigation
+@using System.Text.Json
+ @inject IJSRuntime JS
+ @inject ApiService ApiService
+
+<PageTitle>الأسواق</PageTitle>
+
+<h3 class="text-center my-4">جميع الأسواق</h3>
+
+@if (markets == null)
+{
+    <p class="text-center">جاري تحميل البيانات...</p>
+}
+else if (!markets.Any())
+{
+    <p class="text-center">لا توجد أسواق متاحة حاليًا.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var market in markets)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">@market.Name</h5>
+                        <h6 class="card-subtitle mb-2 text-muted">رمز السوق: @market.Mcode</h6>
+                        <p class="card-text">@market.MInstance</p>
+                        <p class="card-text">
+                            <strong>الحالة: </strong>
+                            @(market.IsLock ? "مغلق" : "مفتوح")
+                        </p>
+                        <button class="btn btn-primary" @onclick="() => NavigateToShops(market.Mcode)">
+                            عرض المحلات
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code{
+    private List<MarketGetAllDTO>? markets;
+    private string _apiBaseUrl = "";
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        try
+        {
+            // استدعاء API لجلب البيانات
+            markets = await Http.GetFromJsonAsync<List<MarketGetAllDTO>>($"{_apiBaseUrl}api/Market/GetAll");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"خطأ في جلب البيانات: {ex.Message}");
+            markets = new List<MarketGetAllDTO>(); // تجنب الأخطاء في حالة الفشل
+        }
+    }
+
+    private void NavigateToShops(string marketcode)
+    {
+          JS.InvokeVoidAsync("sessionStorage.setItem", "marketcode", marketcode);
+        // التنقل إلى صفحة المحلات مع معرّف السوق
+        Navigation.NavigateTo("/ShopeShowAll");
+    }
+}

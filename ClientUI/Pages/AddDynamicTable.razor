@@ -1,0 +1,294 @@
+﻿@page "/dynamic"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+@using APPL.Services
+ @inject ApiService ApiService
+
+<EditForm EditContext="editContext" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="productname">العنصر:</label>
+        <InputText id="productname" @bind-Value="addDynamicTableCommand.ProductName" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label for="description">الوصف:</label>
+        <InputText id="description" @bind-Value="addDynamicTableCommand.Description" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label for="price">السعر:</label>
+        <InputNumber id="price" @bind-Value="addDynamicTableCommand.Price" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label for="DiscountedPrice">الكمية:</label>
+        <InputNumber id="DiscountedPrice" @bind-Value="addDynamicTableCommand.DiscountedPrice" class="form-control" />
+    </div>
+    @if (isItemAdded)
+    {
+        <div class="form-group">
+            <label for="imageUpload">تحميل الصور:</label>
+            <InputFile id="imageUpload" OnChange="OnInputFileChange" Multiple="true" />
+        </div>
+    }
+
+    @if (imageUploadQueue.Any())
+    {
+        <div class="mt-3">
+            <p>الصور المختارة:</p>
+            <ul>
+                @foreach (var file in imageUploadQueue)
+                {
+                    <li>
+                        @file.Name
+                        <button type="button" class="btn btn-danger btn-sm ms-2" @onclick="() => RemoveImage(file)">حذف</button>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+
+    <button type="submit" class="btn btn-primary mt-3">إضافة العنصر وحفظ البيانات</button>
+ 
+    <button type="button" class="btn btn-secondary btn-sm ms-2" @onclick="() => updatefildtonewrecord()" 
+    style="display:@(isItemAdded ? "block" : "none")">عنصر جديد</button>
+
+</EditForm>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <p class="alert alert-info mt-3">@message</p>
+}
+
+@code {
+    private ShopCreateService addDynamicTableCommand = new ShopCreateService();
+    private List<IBrowserFile> imageUploadQueue = new List<IBrowserFile>();
+    private List<IBrowserFile> tempFileList = new List<IBrowserFile>(); // قائمة مؤقتة
+    private string tableName;
+    private string message;
+    private int IdFromSql;
+    private EditContext editContext;
+    private string _apiBaseUrl = "";
+   
+
+    private bool isItemAdded = false; // متغير للتحقق من إضافة العنصر
+
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        editContext = new EditContext(addDynamicTableCommand);
+
+        tableName = await JS.InvokeAsync<string>("sessionStorage.getItem", "TableName");
+        if (string.IsNullOrWhiteSpace(tableName))
+        {
+            throw new Exception("Table name is not set in session storage.");
+        }
+        addDynamicTableCommand.TableName = tableName;
+    }
+
+    private void OnInputFileChange(InputFileChangeEventArgs e)
+    { 
+        var newFiles = e.GetMultipleFiles(); 
+        foreach (var file in newFiles)
+        { 
+            if (!imageUploadQueue.Any(f => f.Name == file.Name && f.Size == file.Size))
+            {
+                imageUploadQueue.Add(file); // إضافة الملفات الجديدة إلى القائمة إذا لم تكن مكررة } } StateHasChanged(); }
+            }
+        }
+        StateHasChanged();
+    }
+    private void updatefildtonewrecord()
+    {
+        isItemAdded = false;
+    }
+
+    private void RemoveImage(IBrowserFile file)
+    {
+        imageUploadQueue.Remove(file);
+        StateHasChanged();
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(addDynamicTableCommand.TableName))
+        {
+            message = "اسم الجدول غير موجود.";
+            return;
+        }
+
+        // تحقق من أن الحقول ليست فارغة قبل إرسالها
+        if (string.IsNullOrWhiteSpace(addDynamicTableCommand.ProductName) ||
+            string.IsNullOrWhiteSpace(addDynamicTableCommand.Description))
+        {
+            message = "الاسم أو الوصف غير موجود.";
+            return;
+        }
+
+        // بناء URL مع المعاملات في الرابط
+        var url = $"{_apiBaseUrl}api/Dictionary/AddOrUpdateProduct?productName={addDynamicTableCommand.ProductName}&Discription={addDynamicTableCommand.Description}&tableName={addDynamicTableCommand.TableName}";
+
+        // إرسال الطلب
+        var productResponse = await Http.PostAsync(url, null);
+
+        if (productResponse.IsSuccessStatusCode)
+        {
+            // إذا لم يكن العنصر قد تم إضافته مسبقًا
+            if (!isItemAdded)
+            {
+                // أضف العنصر إلى قاعدة البيانات
+                var response = await Http.PostAsJsonAsync($"{_apiBaseUrl}api/Shops/add-shop", addDynamicTableCommand);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var addedId = await response.Content.ReadFromJsonAsync<int>();
+                    IdFromSql = addedId;
+                    isItemAdded = true; // العنصر تم إضافته بنجاح
+                    message = "تم حفظ العنصر بنجاح! الآن يمكنك إضافة الصور.";
+                }
+                else
+                {
+                    var errorDetails = await response.Content.ReadAsStringAsync();
+                    message = $"خطأ أثناء الحفظ: {errorDetails}";
+                }
+            }
+            else
+            {
+                // إذا كان العنصر موجود بالفعل، قم فقط برفع الصور
+                if (imageUploadQueue.Any())
+                {
+                    await UploadImagesToServer();
+                }
+                message = "تم رفع الصور بنجاح!";
+            }
+        }
+        else
+        {
+            var errorDetails = await productResponse.Content.ReadAsStringAsync();
+            message = $"خطأ أثناء إضافة أو تحديث المنتج: {errorDetails}";
+        }
+    }
+
+
+    // private async Task HandleValidSubmit()
+    // {
+    //     if (string.IsNullOrWhiteSpace(addDynamicTableCommand.TableName))
+    //     {
+    //         message = "اسم الجدول غير موجود.";
+    //         return;
+    //     }
+
+    //     إذا لم يكن العنصر قد تم إضافته مسبقًا
+    //     if (!isItemAdded)
+    //     {
+    //         أضف العنصر إلى قاعدة البيانات
+    //         var response = await Http.PostAsJsonAsync($"{_apiBaseUrl}api/Shops/add-shop", addDynamicTableCommand);
+
+    //         if (response.IsSuccessStatusCode)
+    //         {
+    //             var addedId = await response.Content.ReadFromJsonAsync<int>();
+    //             IdFromSql = addedId;
+    //             isItemAdded = true; العنصر تم إضافته بنجاح
+    //             message = "تم حفظ العنصر بنجاح! الآن يمكنك إضافة الصور.";
+    //         }
+    //         else
+    //         {
+    //             var errorDetails = await response.Content.ReadAsStringAsync();
+    //             message = $"خطأ أثناء الحفظ: {errorDetails}";
+    //         }
+    //     }
+    //     else
+    //     {
+    //         إذا كان العنصر موجود بالفعل، قم فقط برفع الصور
+    //         if (imageUploadQueue.Any())
+    //         {
+    //             await UploadImagesToServer();
+    //         }
+    //         message = "تم رفع الصور بنجاح!";
+
+    //     }
+
+      
+    // }
+
+
+        /*
+
+        private async Task HandleValidSubmit()
+            {
+            if (string.IsNullOrWhiteSpace(addDynamicTableCommand.TableName))
+        {
+        message = "اسم الجدول غير موجود.";
+        return;
+        }
+
+        var response = await Http.PostAsJsonAsync("https://localhost:7173/api/Shops/add-shop", addDynamicTableCommand);
+
+            if (response.IsSuccessStatusCode)
+            {
+            var addedId = await response.Content.ReadFromJsonAsync<int>();
+            IdFromSql = addedId;
+
+                if (imageUploadQueue.Any())
+                {
+            await UploadImagesToServer();
+            }
+
+            message = "تم حفظ البيانات والصور بنجاح!";
+        imageUploadQueue.Clear();
+        }
+            else
+            {
+            var errorDetails = await response.Content.ReadAsStringAsync();
+            message = $"خطأ أثناء الحفظ: {errorDetails}";
+    }
+    }
+    */
+
+    private async Task UploadImagesToServer()
+    {
+        var content = new MultipartFormDataContent();
+
+        foreach (var file in imageUploadQueue)
+        {
+            try
+            {
+                var buffer = new byte[file.Size];
+                await file.OpenReadStream().ReadAsync(buffer);
+                content.Add(new ByteArrayContent(buffer), "files", file.Name); // استخدام اسم موحد لكل ملف
+            }
+            catch (FileNotFoundException ex)
+            {
+                Console.WriteLine($"خطأ أثناء رفع الملف {file.Name}: الملف غير موجود.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"خطأ أثناء رفع الملف {file.Name}: {ex.Message}");
+            }
+        }
+
+        try
+        {
+            var response = await Http.PostAsync($"{_apiBaseUrl}api/Shops/UploadImages?folder={tableName}&id={IdFromSql}", content);
+            if (response.IsSuccessStatusCode)
+            {
+                imageUploadQueue.Clear();
+                Console.WriteLine($"تم رفع الملفات بنجاح");
+
+            }
+            else
+            {
+                Console.WriteLine($"فشل رفع الملفات");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"خطأ أثناء رفع الملفات: {ex.Message}");
+        }
+    }
+}

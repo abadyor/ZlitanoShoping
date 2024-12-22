@@ -1,0 +1,36 @@
+﻿<div class="alert @AlertClass" role="alert" style="display: @(IsVisible ? "block" : "none");">
+    @Message
+    <button type="button" class="btn-close" aria-label="Close" @onclick="Close"></button>
+</div>
+
+@code {
+    [Parameter]
+    public string Message { get; set; } = string.Empty;
+
+    [Parameter]
+    public string AlertType { get; set; } = "info"; // info, success, warning, danger
+
+    private bool IsVisible { get; set; } = false;
+
+    private string AlertClass => AlertType switch
+    {
+        "success" => "alert-success",
+        "danger" => "alert-danger",
+        "warning" => "alert-warning",
+        _ => "alert-info",
+    };
+
+    public void Show(string message, string type = "info")
+    {
+        Message = message;
+        AlertType = type;
+        IsVisible = true;
+        StateHasChanged();
+    }
+
+    public void Close()
+    {
+        IsVisible = false;
+        StateHasChanged();
+    }
+}

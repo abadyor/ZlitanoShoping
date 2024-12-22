@@ -1,0 +1,70 @@
+﻿body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* Navbar */
+.navbar {
+    background-color: #007bff;
+}
+
+.nav-link {
+    margin-right: 15px;
+}
+
+/* Carousel */
+.carousel-item img {
+    height: 400px;
+}
+
+.carousel-caption {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 20px;
+}
+
+.brands {
+    font-size: 0.9rem;
+}
+
+/* Market Categories */
+.icon-box {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 10px;
+    transition: transform 0.2s;
+}
+
+    .icon-box img {
+        width: 50px;
+        height: 50px;
+        margin-bottom: 10px;
+    }
+
+    .icon-box:hover {
+        transform: scale(1.1);
+    }
+
+    .icon-box p {
+        margin: 0;
+        font-weight: bold;
+        color: #333;
+    }
+/* إضافة ظل للصندوق */
+.carousel {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* ظل خفيف حول الـ Carousel */
+    border-radius: 10px; /* تدوير الحواف */
+    margin-left: auto; /* توسيط الـ Carousel */
+    margin-right: auto; /* توسيط الـ Carousel */
+    width: 80%; /* تحديد العرض بنسبة 70% */
+}
+
+/* التحكم في المسافة الداخلية */
+.carousel-inner {
+    padding: 15px; /* المسافة الداخلية حول الصور */
+}
+
+/* تدوير الحواف للصور */
+.carousel-item img {
+    border-radius: 10px;
+}

@@ -1,0 +1,98 @@
+﻿@* @page "/Login"
+@using Microsoft.AspNetCore.Components.Routing
+@inject IJSRuntime JS
+<h1>Login Page</h1>
+
+
+
+
+<div class="container d-flex flex-column align-items-center justify-content-center vh-100">
+    <h1 class="text-center mb-4">Welcome to the Navigation Page</h1>
+    @if (currentPage == "Vendor")
+    {
+        <div class="d-flex gap-3">
+            <NavLink class="btn btn-primary btn-lg" href="/add-vendor">تسجيل جديد</NavLink>
+
+        </div>
+        <div class="d-flex gap-3">
+            <NavLink class="btn btn-primary btn-lg" href="/vendor-login">تسجيل الدخول</NavLink>
+
+        </div>
+    }
+    else if (currentPage == "Customer")
+    {
+        <div class="d-flex gap-3">
+            <NavLink class="btn btn-primary btn-lg" href="/add-Customer">تسجيل جديد</NavLink>
+
+        </div>
+        <div class="d-flex gap-3">
+            <NavLink class="btn btn-primary btn-lg" href="/customer-login">تسجيل الدخول</NavLink>
+
+        </div>
+    }
+</div>
+
+@code {
+    private string currentPage="";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // استرجاع اسم الصفحة من sessionStorage بعد تحميل الصفحة
+            currentPage = await JS.InvokeAsync<string>("sessionStorage.getItem", "currentPage");
+
+            StateHasChanged(); // تحديث الصفحة
+        }
+    }
+}
+
+
+ 
+ *@
+
+
+            @page "/Login"
+@using Microsoft.AspNetCore.Components.Routing
+@inject IJSRuntime JS
+
+<h1>Login Page</h1>
+
+<div class="container d-flex flex-column align-items-center justify-content-center vh-100">
+    <h1 class="text-center mb-4">Welcome to the Navigation Page</h1>
+    @if (currentPage == "Vendor")
+    {
+        <div class="d-flex gap-3">
+            <NavLink class="btn btn-primary btn-lg" href="/add-vendor">تسجيل جديد</NavLink>
+        </div>
+        <div class="d-flex gap-3">
+            <NavLink class="btn btn-primary btn-lg" href="/vendor-login">تسجيل الدخول</NavLink>
+        </div>
+    }
+    else if (currentPage == "Customer")
+    {
+        <div class="d-flex gap-3">
+            <NavLink class="btn btn-primary btn-lg" href="/add-Customer">تسجيل جديد</NavLink>
+        </div>
+        <div class="d-flex gap-3">
+            <NavLink class="btn btn-primary btn-lg" href="/customer-login">تسجيل الدخول</NavLink>
+        </div>
+    }
+</div>
+
+@code {
+    private string currentPage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // تحميل الصفحة لأول مرة
+        currentPage = await JS.InvokeAsync<string>("sessionStorage.getItem", "currentPage");
+    }
+
+    // تحديث الصفحة عند تغيير currentPage
+    public async Task OnPageChanged(string newPage)
+    {
+        currentPage = newPage;
+        StateHasChanged();
+    }
+}

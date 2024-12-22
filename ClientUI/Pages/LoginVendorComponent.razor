@@ -1,0 +1,84 @@
+﻿@page "/vendor-login"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ApiService ApiService
+@layout MainLayout
+<h3 class="text-center my-4">Vendor Login</h3>
+
+<EditForm Model="loginModel" OnValidSubmit="HandleLogin">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="Username" class="form-label">Username</label>
+                    <InputText id="Username" class="form-control" @bind-Value="loginModel.Username" placeholder="Enter username" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="Password" class="form-label">Password</label>
+                    <InputText id="Password" class="form-control" @bind-Value="loginModel.Password" type="password" placeholder="Enter password" />
+                </div>
+
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-primary px-5">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [CascadingParameter]
+    private MainLayout mainLayout { get; set; }
+    private VendorLoginusernamepasswordDTO loginModel = new VendorLoginusernamepasswordDTO();
+    private string _apiBaseUrl = "";
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+    }
+    private async Task HandleLogin()
+    {
+        try
+        {
+            string apiUrl = $"{_apiBaseUrl}api/Vendors/login";
+            var response = await Http.PostAsJsonAsync(apiUrl, loginModel);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var vendor = await response.Content.ReadFromJsonAsync<VendorResponseServiceDTO>();
+                if (vendor != null)
+                {
+                    await JS.InvokeVoidAsync("alert", "Login successful!");
+                    await JS.InvokeVoidAsync("sessionStorage.setItem", "username", vendor.Username);
+                    await JS.InvokeVoidAsync("sessionStorage.setItem", "password", vendor.Password);
+                    await JS.InvokeVoidAsync("sessionStorage.setItem", "id_vendor", vendor.Id);
+
+                    if (mainLayout != null)
+                    {
+                         mainLayout .updateIdVendor(vendor.Id);
+                    }
+                    // Redirect to a vendor dashboard or another page
+                    Navigation.NavigateTo("/vendor-data");
+                }
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("alert", $"Login failed: {errorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error during login: {ex.Message}");
+            await JS.InvokeVoidAsync("alert", "An error occurred during login. Please try again.");
+        }
+    }
+
+ 
+
+   
+}

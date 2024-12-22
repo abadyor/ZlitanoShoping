@@ -1,0 +1,216 @@
+﻿@page "/edit-shop/{shopId:int}"
+
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@inject ApiService ApiService
+
+<h3 class="text-center my-4">Edit Shop</h3>
+
+<EditForm Model="shopModel" OnValidSubmit="HandleSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="container">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label for="Name" class="form-label">Shop Name</label>
+                <InputText id="Name" class="form-control" @bind-Value="shopModel.Name" placeholder="Enter shop name" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="Street" class="form-label">Street</label>
+                <InputText id="Street" class="form-control" @bind-Value="shopModel.Street" placeholder="Enter street" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="NerestPoint" class="form-label">Nearest Point</label>
+                <InputText id="NerestPoint" class="form-control" @bind-Value="shopModel.NerestPoint" placeholder="Enter nearest point" />
+            </div>
+
+            <div class="col-md-6">
+                <label for="startWork" class="form-label">Start Work Time</label>
+                <input @bind="shopModel.StartWorkTime" type="time" class="form-control" id="startWork" />
+            </div>
+            
+           
+
+            <div class="col-md-6">
+                <label for="endWork" class="form-label">End Work Time</label>
+
+                <input @bind="shopModel.EndWorkTime" type="time" class="form-control" id="endWork" />
+            </div>
+
+            <div class="col-md-12">
+                <label for="notes" class="form-label">Notes</label>
+                <textarea @bind="shopModel.Notes" class="form-control" id="notes" rows="3" placeholder="Enter any additional notes"></textarea>
+            </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <button type="submit" class="btn btn-primary px-5">Update</button>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] public int shopId { get; set; }
+
+    private ShopControleServiceBYID_DTO shopModel = new();
+    
+    private string _apiBaseUrl = "";
+    private string M_Code;
+    private List<MarketGetAllServiceDTO> markets = new();
+    private List<CitiesGetServiceDTO> cities = new();
+
+    // تحويل الوقت إلى string و العكس
+    private string startWorkTimeString
+    {
+        get => shopModel.StartWorkTime?.ToString("HH:mm") ?? string.Empty;  // تحويل TimeOnly? إلى string
+        set
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                // تحويل string إلى TimeOnly
+                shopModel.StartWorkTime = TimeOnly.TryParse(value, out var time) ? time : (TimeOnly?)null;
+            }
+            else
+            {
+                shopModel.StartWorkTime = null;
+            }
+        }
+    }
+
+    private string endWorkTimeString
+    {
+        get => shopModel.EndWorkTime?.ToString("HH:mm") ?? string.Empty;  // تحويل TimeOnly? إلى string
+        set
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                // تحويل string إلى TimeOnly
+                shopModel.EndWorkTime = TimeOnly.TryParse(value, out var time) ? time : (TimeOnly?)null;
+            }
+            else
+            {
+                shopModel.EndWorkTime = null;
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        M_Code = await JS.InvokeAsync<string>("sessionStorage.getItem", "M_Code");
+        await LoadMarkets();
+        await LoadCities();
+        await LoadShopData();
+    }
+
+    private async Task LoadMarkets()
+    {
+        try
+        {
+            string marketApiUrl = $"{_apiBaseUrl}api/Market/GetAll";
+            var result = await Http.GetFromJsonAsync<List<MarketGetAllServiceDTO>>(marketApiUrl);
+
+            if (result != null)
+            {
+                markets = result;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading markets: {ex.Message}");
+        }
+    }
+
+    private async Task LoadCities()
+    {
+        try
+        {
+            string cityApiUrl = $"{_apiBaseUrl}api/Cities/get-cities";
+            var result = await Http.GetFromJsonAsync<List<CitiesGetServiceDTO>>(cityApiUrl);
+            if (result != null)
+            {
+                cities = result;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading cities: {ex.Message}");
+        }
+    }
+
+    private async Task LoadShopData()
+    {
+        try
+        {
+            string shopApiUrl = $"{_apiBaseUrl}api/MarketControl/Get/{shopId}?marketcode={M_Code}";
+            var result = await Http.GetFromJsonAsync<ShopControleServiceBYID_DTO>(shopApiUrl);
+
+            if (result != null)
+            {
+                result.StartWorkTime = string.IsNullOrEmpty(result.StartWork) ? null : TimeOnly.Parse(result.StartWork);
+                result.EndWorkTime = string.IsNullOrEmpty(result.EndWork) ? null : TimeOnly.Parse(result.EndWork);
+
+                shopModel = result;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading shop data: {ex.Message}");
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            // تأكد من أن StartWorkTime و EndWorkTime غير فارغين قبل إرسالها كـ TimeOnly
+            if (shopModel.StartWorkTime != null && shopModel.EndWorkTime != null)
+            {
+                ShopControleUpdateServiceDTO shopUpdateDto = new ShopControleUpdateServiceDTO
+                    {
+                        Id = shopModel.Id,
+                        Market_Code = M_Code,
+                        Name = shopModel.Name,
+                        Region = shopModel.Region,
+                        Street = shopModel.Street,
+                        NerestPoint = shopModel.NerestPoint,
+                        Notes = shopModel.Notes,
+                        StartWork = shopModel.StartWorkTime?.ToString("HH:mm") != null ? TimeOnly.Parse(shopModel.StartWorkTime?.ToString("HH:mm")) : null,
+                        EndWork = shopModel.EndWorkTime?.ToString("HH:mm") != null ? TimeOnly.Parse(shopModel.EndWorkTime?.ToString("HH:mm")) : null
+                    };
+
+
+                string apiUrl = $"{_apiBaseUrl}api/MarketControl/Update";
+                var response = await Http.PutAsJsonAsync(apiUrl, shopUpdateDto);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    await JS.InvokeVoidAsync("alert", "Shop updated successfully!");
+                    NavigationManager.NavigateTo("/vendor-data");
+                }
+                else
+                {
+                    await JS.InvokeVoidAsync("alert", "Failed to update shop.");
+                }
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Please select valid work times.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error updating shop: {ex.Message}");
+        }
+    }
+
+    public class CitiesGetServiceDTO
+    {
+        public string RegionCode { get; set; }
+        public string RegionName { get; set; }
+    }
+}

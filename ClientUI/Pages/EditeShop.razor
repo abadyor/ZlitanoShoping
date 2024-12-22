@@ -1,0 +1,817 @@
+﻿@* @page "/edit-item/{id:int}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@using APPL.Services
+
+<h3>Edit Item</h3>
+
+@if (itemData == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <EditForm Model="itemData" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div>
+            <label for="ProductName">Product Name:</label>
+            <InputText id="ProductName" @bind-Value="itemData.ProductName" />
+        </div>
+
+        <div>
+            <label for="Description">Description:</label>
+            <InputText id="Description" @bind-Value="itemData.Description" />
+        </div>
+
+        <div>
+            <label for="Price">Price:</label>
+            <InputNumber id="Price" @bind-Value="itemData.Price" />
+        </div>
+
+        <div>
+            <label for="DiscountedPrice">Discounted Price:</label>
+            <InputNumber id="DiscountedPrice" @bind-Value="itemData.DiscountedPrice" />
+        </div>
+
+        <div>
+            <label>
+                <InputCheckbox @bind-Value="itemData.HasDiscount" />
+                Has Discount
+            </label>
+        </div>
+
+        <div>
+            <h4>Images</h4>
+            @if (itemData.Images != null && itemData.Images.Any())
+            {
+                <ul>
+                    @foreach (var image in itemData.Images)
+                    {
+                        <li style="margin-bottom: 10px;">
+                            <img src="@($"https://localhost:7173/api/Shops/GetImageForSRC?imagePath={itemData.path}/{image}")"
+                                 alt="Image" style="max-width: 100px; max-height: 100px; display: block; margin-bottom: 5px;" />
+
+                            <!-- زر رفع صورة بديلة -->
+                            <InputFile OnChange="e => HandleReplaceImage(image, e)" />
+
+                            <!-- زر الحذف -->
+                            <button @onclick="() => HandleDeleteImage(image)" style="margin-top: 5px;">Delete</button>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No images available.</p>
+            }
+        </div>
+
+        <button type="submit">Save Changes</button>
+    </EditForm>
+}
+
+@code {
+    private string TableName { get; set; }
+    [Parameter] public int Id { get; set; }
+
+    private ItemDataWithImagesServiceDTO itemData = null;
+    private UpdateShopeServiceDTO updateShopeS = new UpdateShopeServiceDTO();
+
+    protected override async Task OnInitializedAsync()
+    {
+        TableName = await JS.InvokeAsync<string>("sessionStorage.getItem", "TableName");
+        await LoadItemData();
+    }
+
+    private async Task LoadItemData()
+    {
+        try
+        {
+            // استدعاء API للحصول على بيانات العنصر
+            string apiUrl = $"https://localhost:7173/api/Shops/GetShopWhereId/{Id}?tablename={TableName}";
+
+            // استخدام مصفوفة لاستيعاب الرد إذا كان قائمة
+            var items = await Http.GetFromJsonAsync<List<ItemDataWithImagesServiceDTO>>(apiUrl);
+
+            // تعيين العنصر الأول
+            itemData = items?.FirstOrDefault();
+            Console.WriteLine($"The path is: {itemData.path}");
+
+            if (itemData == null)
+            {
+                Console.Error.WriteLine("No item found for the given ID.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error fetching item data: {ex.Message}");
+        }
+    }
+
+
+    private async Task HandleReplaceImage(string oldImageName, InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            var content = new MultipartFormDataContent
+        {
+            { new StreamContent(file.OpenReadStream()), "file", file.Name }
+        };
+
+            // API لاستبدال الصورة
+            string replaceApiUrl = $"https://localhost:7173/api/Shops/ReplaceImage?tablename={TableName}&oldImagePath={itemData.path}/{oldImageName}";
+            var response = await Http.PostAsync(replaceApiUrl, content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var newImageName = await response.Content.ReadAsStringAsync(); // افترض أن API يعيد اسم الصورة الجديدة
+                itemData.Images.Remove(oldImageName); // حذف القديمة محليًا
+                itemData.Images.Add(newImageName);   // إضافة الصورة الجديدة محليًا
+                Console.WriteLine($"Image {oldImageName} replaced successfully with {newImageName}.");
+            }
+            else
+            {
+                Console.Error.WriteLine($"Failed to replace image: {response.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error replacing image: {ex.Message}");
+        }
+    }
+
+
+    private async Task HandleDeleteImage(string imageName)
+    {
+        try
+        {
+            string deleteApiUrl = $"https://localhost:7173/api/Shops/DeleteImage?imagePath={itemData.path}/{imageName}";
+            var response = await Http.DeleteAsync(deleteApiUrl);
+
+            if (response.IsSuccessStatusCode)
+            {
+                itemData.Images.Remove(imageName); // تحديث القائمة محليًا
+                Console.WriteLine($"Image {imageName} deleted successfully.");
+            }
+            else
+            {
+                Console.Error.WriteLine($"Failed to delete image: {response.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error deleting image: {ex.Message}");
+        }
+    }
+
+
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            updateShopeS.Id = itemData.Id;
+            updateShopeS.ProductName = itemData.ProductName;
+            updateShopeS.Description = itemData.Description;
+            updateShopeS.Price = itemData.Price;
+            updateShopeS.DiscountedPrice = itemData.DiscountedPrice;
+            updateShopeS.HasDiscount = itemData.HasDiscount;
+            // استدعاء API لتحديث البيانات باستخدام PUT
+            string apiUrl = $"https://localhost:7173/api/Shops/UpdateShope?tablename={TableName}";
+            await Http.PutAsJsonAsync(apiUrl, updateShopeS);
+
+            // إعادة التوجيه إلى صفحة أخرى بعد الحفظ
+            Navigation.NavigateTo("/shop-vendor");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error updating item data: {ex.Message}");
+        }
+    }
+}
+ *@
+
+@* 
+            @page "/edit-item/{id:int}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@using APPL.Services
+
+<h3>Edit Item</h3>
+
+@if (itemData == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <EditForm Model="itemData" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div>
+            <label for="ProductName">Product Name:</label>
+            <InputText id="ProductName" @bind-Value="itemData.ProductName" />
+        </div>
+
+        <div>
+            <label for="Description">Description:</label>
+            <InputText id="Description" @bind-Value="itemData.Description" />
+        </div>
+
+        <div>
+            <label for="Price">Price:</label>
+            <InputNumber id="Price" @bind-Value="itemData.Price" />
+        </div>
+
+        <div>
+            <label for="DiscountedPrice">Discounted Price:</label>
+            <InputNumber id="DiscountedPrice" @bind-Value="itemData.DiscountedPrice" />
+        </div>
+
+        <div>
+            <label>
+                <InputCheckbox @bind-Value="itemData.HasDiscount" />
+                Has Discount
+            </label>
+        </div>
+
+        <div>
+            <h4>Images</h4>
+            @if (itemData.Images != null && itemData.Images.Any())
+            {
+                <ul>
+                    @foreach (var image in itemData.Images)
+                    {
+                        <li style="margin-bottom: 10px;">
+                            <img src="@($"https://localhost:7173/api/Shops/GetImageForSRC?imagePath={itemData.path}/{image}")"
+                                 alt="Image" style="max-width: 100px; max-height: 100px; display: block; margin-bottom: 5px;" />
+
+                            <!-- زر رفع صورة بديلة -->
+                            <InputFile OnChange="e => HandleReplaceImage(image, e)" />
+
+                            <!-- زر الحذف -->
+                            <button type="button" @onclick="() => HandleDeleteImage(image)" style="margin-top: 5px;">Delete</button>
+
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No images available.</p>
+            }
+        </div>
+
+        <button type="submit">Save Changes</button>
+    </EditForm>
+}
+
+@code {
+    private string TableName { get; set; }
+    [Parameter] public int Id { get; set; }
+
+    private ItemDataWithImagesServiceDTO itemData = null;
+    private UpdateShopeServiceDTO updateShopeS = new UpdateShopeServiceDTO();
+
+    protected override async Task OnInitializedAsync()
+    {
+        TableName = await JS.InvokeAsync<string>("sessionStorage.getItem", "TableName");
+        await LoadItemData();
+    }
+
+    private async Task LoadItemData()
+    {
+        try
+        {
+            // استدعاء API للحصول على بيانات العنصر
+            string apiUrl = $"https://localhost:7173/api/Shops/GetShopWhereId/{Id}?tablename={TableName}";
+
+            var items = await Http.GetFromJsonAsync<List<ItemDataWithImagesServiceDTO>>(apiUrl);
+
+            itemData = items?.FirstOrDefault();
+            Console.WriteLine($"The path is: {itemData.path}");
+
+            if (itemData == null)
+            {
+                Console.Error.WriteLine("No item found for the given ID.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error fetching item data: {ex.Message}");
+        }
+    }
+
+    private async Task HandleReplaceImage(string oldImageName, InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+
+            // تأكد من أن الملف ليس فارغًا
+            if (file == null )
+            {
+                Console.Error.WriteLine("No file selected for upload.");
+                return;
+            }
+
+            // استخدام MultipartFormDataContent لإرسال الصورة و المعلمات الأخرى
+            var content = new MultipartFormDataContent
+        {
+            { new StreamContent(file.OpenReadStream()), "file", file.Name },
+            { new StringContent(TableName), "folder" },
+            { new StringContent(oldImageName), "nameold" },
+            { new StringContent(Id.ToString()), "id" }
+        };
+
+            // استدعاء API لتحديث الصورة
+            string apiUrl = $"https://localhost:7173/api/Shops/update-image";
+            var response = await Http.PostAsync(apiUrl, content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var newImageName = await response.Content.ReadAsStringAsync(); // افترض أن API يعيد اسم الصورة الجديدة
+                itemData.Images.Remove(oldImageName); // حذف الصورة القديمة من القائمة
+                itemData.Images.Add(newImageName);   // إضافة الصورة الجديدة إلى القائمة
+                Console.WriteLine($"Image {oldImageName} replaced successfully with {newImageName}.");
+                StateHasChanged();
+                await LoadItemData();
+            }
+            else
+            {
+                Console.Error.WriteLine($"Failed to replace image: {response.ReasonPhrase}");
+            }
+
+            
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error replacing image: {ex.Message}");
+        }
+    }
+
+
+    private async Task HandleDeleteImage(string imageName)
+    {
+        try
+        {
+            Console.WriteLine("Start deleting image...");
+            string deleteApiUrl = $"https://localhost:7173/api/Shops/delete-image?folder={TableName}&nameold={imageName}";
+            var response = await Http.DeleteAsync(deleteApiUrl);
+
+            if (response.IsSuccessStatusCode)
+            {
+                itemData.Images.Remove(imageName); // تحديث القائمة محليًا
+                Console.WriteLine($"Image {imageName} deleted successfully.");
+                StateHasChanged();
+                await LoadItemData();
+            }
+            else
+            {
+                Console.Error.WriteLine($"Failed to delete image: {response.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error deleting image: {ex.Message}");
+        }
+        finally
+        {
+            Console.WriteLine("Delete image function finished.");
+        }
+    }
+
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            updateShopeS.Id = itemData.Id;
+            updateShopeS.ProductName = itemData.ProductName;
+            updateShopeS.Description = itemData.Description;
+            updateShopeS.Price = itemData.Price;
+            updateShopeS.DiscountedPrice = itemData.DiscountedPrice;
+            updateShopeS.HasDiscount = itemData.HasDiscount;
+
+            // استدعاء API لتحديث البيانات باستخدام PUT
+            string apiUrl = $"https://localhost:7173/api/Shops/UpdateShope?tablename={TableName}";
+            await Http.PutAsJsonAsync(apiUrl, updateShopeS);
+
+            // إعادة التوجيه إلى صفحة أخرى بعد الحفظ
+            Navigation.NavigateTo("/shop-vendor");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error updating item data: {ex.Message}");
+        }
+    }
+}
+ *@
+
+@*             @page "/edit-item/{id:int}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@using APPL.Services
+
+<h3>Edit Item</h3>
+
+@if (itemData == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <EditForm Model="itemData" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div>
+            <label for="ProductName">Product Name:</label>
+            <InputText id="ProductName" @bind-Value="itemData.ProductName" />
+        </div>
+
+        <div>
+            <label for="Description">Description:</label>
+            <InputText id="Description" @bind-Value="itemData.Description" />
+        </div>
+
+        <div>
+            <label for="Price">Price:</label>
+            <InputNumber id="Price" @bind-Value="itemData.Price" />
+        </div>
+
+        <div>
+            <label for="DiscountedPrice">Discounted Price:</label>
+            <InputNumber id="DiscountedPrice" @bind-Value="itemData.DiscountedPrice" />
+        </div>
+
+        <div>
+            <label>
+                <InputCheckbox @bind-Value="itemData.HasDiscount" />
+                Has Discount
+            </label>
+        </div>
+
+        <div>
+            <h4>Images</h4>
+            @if (itemData.Images != null && itemData.Images.Any())
+            {
+                <ul>
+                    @foreach (var image in itemData.Images)
+                    {
+                        <li style="margin-bottom: 10px;">
+                            <img src="@($"https://localhost:7173/api/Shops/GetImageForSRC?imagePath={itemData.path}/{image}")"
+                                 alt="Image" style="max-width: 100px; max-height: 100px; display: block; margin-bottom: 5px;" />
+
+                            <!-- زر رفع صورة بديلة -->
+                            <InputFile OnChange="e => HandleReplaceImage(image, e)" />
+
+                            <!-- زر الحذف -->
+                            <button type="button" @onclick="() => HandleDeleteImage(image)" style="margin-top: 5px;">Delete</button>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No images available.</p>
+            }
+        </div>
+
+        <div>
+            <h4>Add New Images</h4>
+            <InputFile OnChange="HandleNewImagesUpload" Multiple="true" />
+            @if (newImages.Any())
+            {
+                <ul>
+                    @foreach (var file in newImages)
+                    {
+                        <li>
+                            @file.Name
+                            <button type="button" class="btn btn-danger btn-sm ms-2" @onclick="() => RemoveNewImage(file)">Remove</button>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        <button type="submit">Save Changes</button>
+    </EditForm>
+} *@
+
+
+
+@page "/edit-item/{id:int}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@using APPL.Services
+ @inject ApiService ApiService
+
+<div class="container mt-5">
+    <h3 class="text-center text-primary mb-4">Edit Item</h3>
+
+    @if (itemData == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-lg">
+            <div class="card-body">
+                <EditForm Model="itemData" OnValidSubmit="HandleSubmit" class="needs-validation">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="mb-3">
+                        <label for="ProductName" class="form-label">Product Name:</label>
+                        <InputText id="ProductName" class="form-control" @bind-Value="itemData.ProductName" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="Description" class="form-label">Description:</label>
+                        <InputText id="Description" class="form-control" @bind-Value="itemData.Description" />
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="Price" class="form-label">Price:</label>
+                            <InputNumber id="Price" class="form-control" @bind-Value="itemData.Price" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="DiscountedPrice" class="form-label">Discounted Price:</label>
+                            <InputNumber id="DiscountedPrice" class="form-control" @bind-Value="itemData.DiscountedPrice" />
+                        </div>
+                    </div>
+
+                    <div class="form-check mb-4">
+                        <InputCheckbox id="HasDiscount" class="form-check-input" @bind-Value="itemData.HasDiscount" />
+                        <label class="form-check-label" for="HasDiscount">Has Discount</label>
+                    </div>
+
+                    <h4 class="mt-4 text-secondary">Images</h4>
+                    <div class="row">
+                        @if (itemData.Images != null && itemData.Images.Any())
+                        {
+                            @foreach (var image in itemData.Images)
+                            {
+                                <div class="col-md-3 mb-3">
+                                    <div class="card">
+                                        <img src="@($"{_apiBaseUrl}api/Shops/GetImageForSRC?imagePath={itemData.path}/{image}")"
+                                             class="card-img-top" alt="Image"
+                                             style="max-height: 150px; object-fit: cover;" />
+                                        <div class="card-body text-center">
+                                            <InputFile OnChange="e => HandleReplaceImage(image, e)" />
+                                            <button type="button" class="btn btn-danger btn-sm mt-2"
+                                                    @onclick="() => HandleDeleteImage(image)">
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted">No images available.</p>
+                        }
+                    </div>
+
+                    <div class="mt-4">
+                        <h4 class="text-secondary">Add New Images</h4>
+                        <InputFile OnChange="HandleNewImagesUpload" Multiple="true" class="form-control" />
+                        @if (newImages.Any())
+                        {
+                            <ul class="list-group mt-3">
+                                @foreach (var file in newImages)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        @file.Name
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                @onclick="() => RemoveNewImage(file)">
+                                            Remove
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">Save Changes</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .card img {
+        border-radius: 5px;
+    }
+
+    .form-control:focus {
+        box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+        border-color: rgba(0, 123, 255, 0.8);
+    }
+
+    .btn {
+        transition: 0.3s ease;
+    }
+
+        .btn:hover {
+            transform: translateY(-3px);
+        }
+</style>
+
+@code {
+    // الكود الخلفي كما في المثال السابق
+}
+
+
+@code {
+    private string TableName { get; set; }
+    [Parameter] public int Id { get; set; }
+    private string _apiBaseUrl = "";
+    private ItemDataWithImagesServiceDTO itemData = null;
+    private UpdateShopeServiceDTO updateShopeS = new UpdateShopeServiceDTO();
+    private List<IBrowserFile> newImages = new List<IBrowserFile>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        TableName = await JS.InvokeAsync<string>("sessionStorage.getItem", "TableName");
+        await LoadItemData();
+    }
+
+    private async Task LoadItemData()
+    {
+        try
+        {
+            string apiUrl = $"{_apiBaseUrl}api/Shops/GetShopWhereId/{Id}?tablename={TableName}";
+
+            var items = await Http.GetFromJsonAsync<List<ItemDataWithImagesServiceDTO>>(apiUrl);
+
+            itemData = items?.FirstOrDefault();
+            Console.WriteLine($"The path is: {itemData.path}");
+
+            if (itemData == null)
+            {
+                Console.Error.WriteLine("No item found for the given ID.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error fetching item data: {ex.Message}");
+        }
+    }
+
+    private async Task HandleReplaceImage(string oldImageName, InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+
+            if (file == null)
+            {
+                Console.Error.WriteLine("No file selected for upload.");
+                return;
+            }
+
+            var content = new MultipartFormDataContent
+            {
+                { new StreamContent(file.OpenReadStream()), "file", file.Name },
+                { new StringContent(TableName), "folder" },
+                { new StringContent(oldImageName), "nameold" },
+                { new StringContent(Id.ToString()), "id" }
+            };
+
+            string apiUrl = $"{_apiBaseUrl}api/Shops/update-image";
+            var response = await Http.PostAsync(apiUrl, content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var newImageName = await response.Content.ReadAsStringAsync();
+                itemData.Images.Remove(oldImageName);
+                itemData.Images.Add(newImageName);
+                StateHasChanged();
+                await LoadItemData();
+            }
+            else
+            {
+                Console.Error.WriteLine($"Failed to replace image: {response.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error replacing image: {ex.Message}");
+        }
+    }
+
+    private async Task HandleDeleteImage(string imageName)
+    {
+        try
+        {
+            string deleteApiUrl = $"{_apiBaseUrl}api/Shops/delete-image?folder={TableName}&nameold={imageName}";
+            var response = await Http.DeleteAsync(deleteApiUrl);
+
+            if (response.IsSuccessStatusCode)
+            {
+                itemData.Images.Remove(imageName);
+                StateHasChanged();
+                await LoadItemData();
+            }
+            else
+            {
+                Console.Error.WriteLine($"Failed to delete image: {response.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error deleting image: {ex.Message}");
+        }
+    }
+
+    private async Task HandleNewImagesUpload(InputFileChangeEventArgs e)
+    {
+        foreach (var file in e.GetMultipleFiles())
+        {
+            if (!newImages.Any(f => f.Name == file.Name && f.Size == file.Size))
+            {
+                newImages.Add(file);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void RemoveNewImage(IBrowserFile file)
+    {
+        newImages.Remove(file);
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            updateShopeS.Id = itemData.Id;
+            updateShopeS.ProductName = itemData.ProductName;
+            updateShopeS.Description = itemData.Description;
+            updateShopeS.Price = itemData.Price;
+            updateShopeS.DiscountedPrice = itemData.DiscountedPrice;
+            updateShopeS.HasDiscount = itemData.HasDiscount;
+
+            string apiUrl = $"{_apiBaseUrl}api/Shops/UpdateShope?tablename={TableName}";
+            await Http.PutAsJsonAsync(apiUrl, updateShopeS);
+
+            if (newImages.Any())
+            {
+                await UploadNewImages();
+            }
+
+            Navigation.NavigateTo("/shop-vendor");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error updating item data: {ex.Message}");
+        }
+    }
+
+    private async Task UploadNewImages()
+    {
+        var content = new MultipartFormDataContent();
+
+        foreach (var file in newImages)
+        {
+            var buffer = new byte[file.Size];
+            await file.OpenReadStream().ReadAsync(buffer);
+            content.Add(new ByteArrayContent(buffer), "files", file.Name);
+        }
+
+        string apiUrl = $"{_apiBaseUrl}api/Shops/UploadImages?folder={TableName}&id={Id}";
+        var response = await Http.PostAsync(apiUrl, content);
+
+        if (response.IsSuccessStatusCode)
+        {
+            newImages.Clear();
+            StateHasChanged();
+            await LoadItemData();
+        }
+        else
+        {
+            Console.Error.WriteLine("Error uploading new images.");
+        }
+    }
+}

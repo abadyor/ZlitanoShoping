@@ -1,0 +1,362 @@
+﻿@* @page "/shop-vendor"
+@inject HttpClient Http
+@using System.Net.Http.Json
+@inject NavigationManager Navigation
+@using System.Text.Json
+@inject IJSRuntime JS
+@using APPL.Services
+
+<style>
+    .products-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+        justify-content: center;
+    }
+
+    .product-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        background-color: #fff;
+        transition: transform 0.3s ease-in-out;
+    }
+
+        .product-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+
+    .product-details h4 {
+        margin-bottom: 12px;
+        color: #333;
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    .product-details p {
+        margin: 6px 0;
+        font-size: 14px;
+        color: #666;
+    }
+
+    .discount-label {
+        color: #ff4c4c;
+        font-weight: bold;
+    }
+
+    .product-images {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 16px;
+        flex-wrap: wrap;
+    }
+
+    .product-image {
+        height: 120px;
+        width: auto;
+        max-width: 150px;
+        border-radius: 6px;
+        transition: transform 0.3s ease-in-out;
+        cursor: pointer;
+    }
+
+        .product-image:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+    .product-card .product-images {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+    }
+
+</style>
+
+<h3>Products</h3>
+
+@if (isLoading)
+{
+    <p>Loading products...</p>
+}
+else if (products.Any())
+{
+    <div class="products-grid">
+        @foreach (var product in products)
+        {
+            <div class="product-card">
+                <div class="product-details">
+                    <h4>@product.ProductName</h4>
+                    <p>@product.Description</p>
+                    <p><strong>Price:</strong> $@product.Price</p>
+                    <p><strong>Discounted Price:</strong> $@product.DiscountedPrice</p>
+                    @if (product.HasDiscount)
+                    {
+                        <p class="discount-label">On Discount!</p>
+                    }
+                </div>
+                <div class="product-images">
+                    @if (product.Images != null && product.Images.Any())
+                    {
+                        @foreach (var image in product.Images)
+                        {
+                            <img src="https://localhost:7173/api/Shops/GetImageForSRC?imagePath=@product.path/@image" alt="Product Image" class="product-image" />
+                        }
+                    }
+                    else
+                    {
+                        <p>No images available</p>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <p>No products found.</p>
+}
+
+@code {
+    private string TableName { get; set; }
+    private List<ItemDataWithImagesServiceDTO> products = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        TableName = await JS.InvokeAsync<string>("sessionStorage.getItem", "TableName");
+
+        if (string.IsNullOrWhiteSpace(TableName))
+        {
+            Console.WriteLine("Error: TableName is missing or invalid.");
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            // استدعاء API لجلب بيانات المنتجات
+            products = await Http.GetFromJsonAsync<List<ItemDataWithImagesServiceDTO>>($"https://localhost:7173/api/Shops/GetItemsDataWithImages?tableName={TableName}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading products: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
+ *@
+@page "/shop-vendor"
+@inject HttpClient Http
+@using System.Net.Http.Json
+@inject NavigationManager Navigation
+@using System.Text.Json
+@inject IJSRuntime JS
+@using APPL.Services
+@inject ApiService ApiService
+
+<style>
+    .product-image-container {
+        width: 100%;
+        height: 150px;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+
+    .product-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .product-card {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 10px;
+        padding: 15px;
+        background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        flex: 1 1 calc(33.33% - 20px);
+        box-sizing: border-box;
+    }
+
+    .products-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    .product-details {
+        padding: 10px;
+    }
+
+    .discount-label {
+        background-color: #ff0000;
+        color: white;
+        padding: 5px;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    .edit-button {
+        background-color: #4CAF50; /* لون الزر */
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-align: center;
+        margin-top: 10px;
+    }
+
+        .edit-button:hover {
+            background-color: #45a049; /* تأثير التمرير */
+        }
+</style>
+
+<h3>Products</h3>
+
+@if (isLoading)
+{
+    <p>Loading products...</p>
+}
+else if (products.Any())
+{
+    <div class="products-grid">
+        @foreach (var product in products)
+        {
+            <div class="product-card">
+                <div class="product-details">
+                    <h4>@product.ProductName</h4>
+                    <p>@product.Description</p>
+                    <p><strong>Price:</strong> $@product.Price</p>
+                    <p><strong>Discounted Price:</strong> $@product.DiscountedPrice</p>
+                    @if (product.HasDiscount)
+                    {
+                        <p class="discount-label">On Discount!</p>
+                    }
+                    <!-- زر التعديل -->
+                    <button class="edit-button" @onclick="() => EditProduct(product.Id)">Edit</button>
+                </div>
+                <div class="product-images">
+                    @if (product.Images != null && product.Images.Count > 0)
+                    {
+                        // تحقق من أن currentImageIndex هو ضمن نطاق الصور المتاحة
+                        if (productImagesIndex.ContainsKey(product.Id))
+                        {
+                            int currentImageIndexForProduct = productImagesIndex[product.Id];
+                            <div class="product-image-container">
+                                <img src="@($"{_apiBaseUrl}api/Shops/GetImageForSRC?imagePath={product.path}/{product.Images[currentImageIndexForProduct]}")"
+                                     alt="Product Image"
+                                     class="product-image" />
+                            </div>
+                        }
+                        else
+                        {
+                            <p>No image available</p>
+                        }
+                    }
+                    else
+                    {
+                        <p>No images available</p>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private string TableName { get; set; }
+    private List<ItemDataWithImagesServiceDTO> products = new();
+    private bool isLoading = true;
+    private Dictionary<int, int> productImagesIndex = new();  // Dictionary to hold the image index for each product
+    private Timer imageTimer;
+    private string _apiBaseUrl = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _apiBaseUrl = ApiService.GetApiBaseUrl();
+        TableName = await JS.InvokeAsync<string>("sessionStorage.getItem", "TableName");
+
+        if (string.IsNullOrWhiteSpace(TableName))
+        {
+            Console.WriteLine("Error: TableName is missing or invalid.");
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            // استدعاء API لجلب بيانات المنتجات
+            products = await Http.GetFromJsonAsync<List<ItemDataWithImagesServiceDTO>>($"{_apiBaseUrl}api/Shops/GetItemsDataWithImages?tableName={TableName}");
+
+            // Initialize image index for each product
+            foreach (var product in products)
+            {
+                productImagesIndex[product.Id] = 0; // Start with the first image
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading products: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+
+        // البدء في تغيير الصور بشكل دوري
+        StartImageRotation();
+    }
+
+    // بدء المؤقت لتغيير الصورة
+    private void StartImageRotation()
+    {
+        if (products.Any() && products.FirstOrDefault()?.Images?.Any() == true)
+        {
+            imageTimer = new Timer(ChangeImage, null, 0, 3000); // تغيير الصورة كل 3 ثواني
+        }
+    }
+
+    // دالة لتغيير الصورة
+    private void ChangeImage(object state)
+    {
+        foreach (var product in products)
+        {
+            // التحقق من أن currentImageIndex لا يتجاوز حجم القائمة
+            if (product.Images != null && product.Images.Count > 0)
+            {
+                productImagesIndex[product.Id]++; // التبديل للصورة التالية
+                if (productImagesIndex[product.Id] >= product.Images.Count)
+                {
+                    productImagesIndex[product.Id] = 0; // العودة للصورة الأولى إذا تم الوصول لآخر صورة
+                }
+            }
+        }
+
+        InvokeAsync(StateHasChanged);  // تحديث واجهة المستخدم
+    }
+
+    // دالة لتوجيه المستخدم إلى صفحة التعديل
+    private void EditProduct(int productId)
+    {
+        // يمكنك إما توجيه المستخدم إلى صفحة تعديل معينة أو عرض نافذة تعديل
+        // على سبيل المثال:
+        Navigation.NavigateTo($"/edit-item/{productId}");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // إيقاف المؤقت عند التخلص من المكون
+        imageTimer?.Dispose();
+    }
+}
